@@ -85,7 +85,7 @@ async function getAIAudit(sourceCode) {
   if (!sourceCode || typeof sourceCode !== 'string') return 'N/A (no source)';
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
   const snippet = sourceCode.slice(0, 3000);
-  const prompt = `You are an elite smart contract auditor. Analyze this code for rugpulls, honeypots, or malicious logic. Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: [XX]% | [1-sentence explanation]`;
+  const prompt = `You are an elite smart contract auditor. Analyze this code for rugpulls, honeypots, or malicious logic. Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
