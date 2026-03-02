@@ -73,8 +73,8 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '🍌 Snipe with Banana Gun', url: `https://t.me/BananaGunSniper_bot?start=snp_${contractAddress}` }],
-                    [{ text: '🤖 Snipe with Maestro', url: `https://t.me/maestro?start=${contractAddress}` }]
+                    [{ text: '🍌 Banana Gun으로 1초 매수 (안전)', url: 'https://t.me/BananaGunSniper_bot?start=ref_499191084' }],
+                    [{ text: '🤖 Maestro 봇으로 스나이핑', url: 'https://t.me/maestro?start=r-sungku' }]
                 ]
             }
         });
