@@ -1,8 +1,10 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
+const { OpenAI } = require('openai');
 
 const token = process.env.API_KEY.trim().replace(/\r?\n|\r/g, '');
 const bot = new TelegramBot(token, {polling: true});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const ETHERSCAN_API_KEY = (process.env.ETHERSCAN_API_KEY || '').trim().replace(/\r?\n|\r/g, '');
 
@@ -79,42 +81,34 @@ async function getContractSourceCode(contractAddress) {
   }
 }
 
-// Scam pattern analyzer (rugpull-style keywords → 0–99% similarity)
-const SCAM_PATTERNS = [
-  { pattern: /\bblacklist\b|isBlacklisted|addToBlacklist|_isBlacklisted|blacklist\s*\[/gi, weight: 15 },
-  { pattern: /\bdisableTrading\b|tradingEnabled\s*=\s*false|setTradingEnabled\s*\(\s*false|tradingOpen\s*=\s*false/gi, weight: 15 },
-  { pattern: /\b_mint\s*\([^)]*to\s*,\s*[^)]*\)|mint\s*\(\s*[^)]*\)\s*external\s*onlyOwner|_mint\s*\([^)]*amount/gi, weight: 12 },
-  { pattern: /takeFee|_takeFee|takeSellFee|feeReceiver|feeRecipient|balanceOf\s*\(\s*owner\s*\)\s*\+|transfer\s*\(\s*owner/gi, weight: 18 },
-  { pattern: /excludeFromFee\s*\(\s*owner|includeInFee\s*\(\s*owner|isExcludedFromFee\s*\[\s*owner\s\]/gi, weight: 12 },
-  { pattern: /maxTxAmount\s*=\s*0|setMaxTxAmount\s*\(|maxSellAmount\s*=\s*0|maxBuyAmount\s*=\s*0/gi, weight: 10 },
-  { pattern: /selfdestruct\s*\(|suicide\s*\(|delegatecall\s*\([^)]*\)/gi, weight: 22 },
-  { pattern: /sellLimit|buyLimit|setSellLimit\s*\(\s*0|setBuyLimit\s*\(\s*0/gi, weight: 8 },
-  { pattern: /antibot|antiBot|anti_bot|blockBot|_blockBot/gi, weight: 10 },
-  { pattern: /cooldown|cooldownEnabled|setCooldown|transferCooldown/gi, weight: 6 },
-  { pattern: /swapAndLiquifyEnabled\s*=\s*false|swapAndLiquify\s*\(\s*\)/gi, weight: 5 },
-  { pattern: /renounceOwnership\s*\(\s*\)|transferOwnership\s*\(\s*0x0\s*\)/gi, weight: 3 },
-];
-
-function calcScamCodeSimilarity(sourceCode) {
-  if (!sourceCode || typeof sourceCode !== 'string') return { score: 0, warning: false };
-  const normalized = sourceCode.replace(/\s+/g, ' ').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-  let total = 0;
-  for (const { pattern, weight } of SCAM_PATTERNS) {
-    const matches = normalized.match(pattern);
-    if (matches) total += weight * Math.min(matches.length, 3);
+async function getAIAudit(sourceCode) {
+  if (!sourceCode || typeof sourceCode !== 'string') return 'N/A (no source)';
+  if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
+  const snippet = sourceCode.slice(0, 3000);
+  const prompt = `You are an elite smart contract auditor. Analyze this code for rugpulls, honeypots, or malicious logic. Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: [XX]% | [1-sentence explanation]`;
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user', content: snippet }
+      ],
+      max_tokens: 200
+    });
+    const text = completion.choices?.[0]?.message?.content?.trim();
+    return text || 'N/A (empty response)';
+  } catch (e) {
+    return `N/A (${e.message || 'API error'})`;
   }
-  const score = Math.min(99, Math.round(total));
-  const warning = score >= 40;
-  return { score, warning };
 }
 
 bot.on('polling_error', (error) => {
     console.log("🚨 Polling Error:", error.message);
 });
 
-console.log("🚨 RUGCOP RADAR is online.");
+console.log("🚨 RUGCOP RADAR is online. (Ethereum + Solana)");
 
-// 🔥 암구호 /xray 완벽 탑재
+// Command: /cop, /scan, /shit + address. 0x = Ethereum; 32–44 base58 = Solana.
 bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const contractAddress = match[2].replace(/\s+/g, '');
@@ -126,15 +120,16 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
   const waitMsg = await bot.sendMessage(chatId, `🚨 RUGCOP RADAR ACTIVATED 🚨\n🎯 Target Locked: <code>${contractAddress}</code>\n\n🐶 Sniffing the contract...\nHold tight, pulling on-chain data... ⏳`, {parse_mode: 'HTML'});
 
   try {
-    const isEVM = contractAddress.startsWith('0x');
-    const isSolana = !isEVM && contractAddress.length >= 30 && contractAddress.length <= 45; 
-    
-    console.log(`🔍 Type Check -> isEVM: ${isEVM}, isSolana: ${isSolana}`);
+const isEVM = contractAddress.startsWith('0x');
+    const isSolana = !isEVM && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(contractAddress);
+
+    console.log(`🔍 Chain branch -> isEVM (Ethereum): ${isEVM}, isSolana: ${isSolana}`);
 
     let resultMsg = null;
 
+    // Ethereum (EVM): 0x-prefix → GoPlus + Etherscan (scam similarity). Chain label: Ethereum.
     if (isEVM) {
-        console.log(`⛓️  Fetching Ethereum API...`);
+        console.log(`⛓️ Fetching Ethereum (GoPlus + Etherscan)...`);
         const apiUrl = `https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=${contractAddress}`;
         const response = await fetch(apiUrl);
         const data = await response.json();
@@ -142,14 +137,13 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
         if (data.code === 1 && data.result && data.result[contractAddress.toLowerCase()]) {
             const sd = data.result[contractAddress.toLowerCase()];
             const sourceCode = await getContractSourceCode(contractAddress);
-            const { score: similarityScore, warning: similarityWarning } = calcScamCodeSimilarity(sourceCode);
-            const similarityLine = sourceCode
-              ? `🧬 <b>Scam Similarity:</b> ${similarityScore}%${similarityWarning ? ' 🚨 HIGH RISK' : ''}`
-              : '🧬 <b>Scam Similarity:</b> N/A (no verified source)';
-            resultMsg = `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n⛓️ <b>Chain:</b> Ethereum\n🪙 <b>Token:</b> ${sd.token_name || "?"} (${sd.token_symbol || "?"})\n📍 <b>Address:</b> <code>${contractAddress}</code>\n\n🍯 <b>Honeypot:</b> ${sd.is_honeypot === "1" ? "🚨 YES" : "✅ NO"}\n💸 <b>Tax:</b> Buy ${Math.round((sd.buy_tax||0)*100)}% | Sell ${Math.round((sd.sell_tax||0)*100)}%\n🖨️ <b>Mintable:</b> ${sd.is_mintable === "1" ? "🚨 YES" : "✅ NO"}\n${similarityLine}\n\n💡 On-chain analysis complete. Tap below to snipe.`;
+            const aiAudit = sourceCode ? await getAIAudit(sourceCode) : 'N/A (no verified source)';
+            const auditLine = `🧠 <b>AI Risk & Audit:</b> ${aiAudit}`;
+            resultMsg = `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n⛓️ <b>Chain:</b> Ethereum\n🪙 <b>Token:</b> ${sd.token_name || "?"} (${sd.token_symbol || "?"})\n📍 <b>Address:</b> <code>${contractAddress}</code>\n\n🍯 <b>Honeypot:</b> ${sd.is_honeypot === "1" ? "🚨 YES" : "✅ NO"}\n💸 <b>Tax:</b> Buy ${Math.round((sd.buy_tax||0)*100)}% | Sell ${Math.round((sd.sell_tax||0)*100)}%\n🖨️ <b>Mintable:</b> ${sd.is_mintable === "1" ? "🚨 YES" : "✅ NO"}\n\n${auditLine}\n\n💡 On-chain analysis complete. Tap below to snipe.`;
         }
+    // Solana: 32–44 char base58, no 0x. GoPlus Solana endpoint only; no Etherscan/scam similarity. Chain label: Solana.
     } else if (isSolana) {
-        console.log(`⛓️  Fetching Solana API...`);
+        console.log(`⛓️ Fetching Solana (GoPlus only, no Etherscan)...`);
         const apiUrl = `https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${contractAddress}`;
         console.log(`🔗 Request URL: ${apiUrl}`);
         
@@ -164,7 +158,7 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
             console.log(`✅ Solana Parsing Success!`);
             const sd = data.result[resultKey];
             const meta = sd.metadata || {};
-            resultMsg = `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n⛓️ <b>Chain:</b> Solana\n🪙 <b>Token:</b> ${meta.name || "?"} (${meta.symbol || "?"})\n📍 <b>Address:</b> <code>${contractAddress}</code>\n\n⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n\n🧬 <b>Scam Similarity:</b> N/A (Etherscan source not used for Solana)\n\n💡 On-chain analysis complete. Tap below to snipe.`;
+            resultMsg = `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n⛓️ <b>Chain:</b> Solana\n🪙 <b>Token:</b> ${meta.name || "?"} (${meta.symbol || "?"})\n📍 <b>Address:</b> <code>${contractAddress}</code>\n\n⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n\n🧬 <b>Scam Similarity:</b> N/A (Solana; no Etherscan source)\n\n💡 On-chain analysis complete. Tap below to snipe.`;
         } else {
             console.log(`❌ Solana parsing failed. API raw data logged.`);
             console.log(JSON.stringify(data, null, 2));
