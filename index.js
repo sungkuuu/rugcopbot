@@ -49,18 +49,29 @@ async function getContractSourceCode(contractAddress) {
 }
 
 // OpenAI gpt-4o-mini: first 3000 chars → risk audit (full)
-async function getAIAudit(sourceCode, sd) {
+async function getAIAudit(sourceCode, sd = {}) {
   if (!sourceCode || typeof sourceCode !== 'string') return 'N/A (no source)';
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
+
   const snippet = sourceCode.slice(0, 3000);
-  let systemPrompt =
-    'You are an elite smart contract auditor. Analyze this code for rugpulls, honeypots, or malicious logic. Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]';
-  if (sd) {
-    const apiDataLine =
-      `Here is the API Security Data -> Honeypot: ${sd.is_honeypot}, Mintable: ${sd.is_mintable}, Buy Tax: ${sd.buy_tax}, Sell Tax: ${sd.sell_tax}. ` +
-      'You MUST factor this API data heavily into your Risk Score calculation.';
-    systemPrompt = systemPrompt + '\n\n' + apiDataLine;
-  }
+
+  const isHoneypot = sd.is_honeypot === "1" ? "YES" : "NO";
+  const isMintable = sd.is_mintable === "1" ? "YES" : "NO";
+  const buyTax = Math.round((sd.buy_tax || 0) * 100);
+  const sellTax = Math.round((sd.sell_tax || 0) * 100);
+  const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls. Analyze this code snippet (which may be incomplete).
+CRITICAL ON-CHAIN DATA:
+
+Honeypot: ${isHoneypot}
+
+Mintable: ${isMintable}
+
+Buy Tax: ${buyTax}% / Sell Tax: ${sellTax}%
+
+STRICT RULE: If 'Mintable' is YES, this is a massive red flag for a malicious infinite mint dump! You MUST increase the Risk Score to at least 80% and explicitly warn about the developer's ability to arbitrarily mint tokens.
+
+Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
+
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -68,7 +79,8 @@ async function getAIAudit(sourceCode, sd) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: snippet }
       ],
-      max_tokens: 200
+      max_tokens: 200,
+      temperature: 0
     });
     const text = completion.choices && completion.choices[0] && completion.choices[0].message && completion.choices[0].message.content
       ? completion.choices[0].message.content.trim()
