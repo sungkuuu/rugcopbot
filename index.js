@@ -12,7 +12,7 @@ const ETHERSCAN_API_KEY = (process.env.ETHERSCAN_API_KEY || '').trim().replace(/
 // Etherscan: fetch contract source code (full)
 async function getContractSourceCode(contractAddress) {
   if (!ETHERSCAN_API_KEY) return '';
-  const apiUrl = `https://api.etherscan.io/api?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${ETHERSCAN_API_KEY}`;
+  const apiUrl = `https://api.etherscan.io/v2/api?chainid=1&module=contract&action=getsourcecode&address=${contractAddress}&apikey=${ETHERSCAN_API_KEY}`;
   try {
     const res = await fetch(apiUrl);
     const data = await res.json();
