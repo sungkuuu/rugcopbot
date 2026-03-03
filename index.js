@@ -48,27 +48,29 @@ async function getContractSourceCode(contractAddress) {
   }
 }
 
-// OpenAI gpt-4o-mini: first 3000 chars → risk audit (full)
+// OpenAI gpt-4o-mini: EVM = code snippet, Solana = JSON data (hybrid)
 async function getAIAudit(sourceCode, sd = {}) {
-  if (!sourceCode || typeof sourceCode !== 'string') return 'N/A (no source)';
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
 
-  const snippet = sourceCode.slice(0, 3000);
+  const isSolana = sourceCode === 'SOLANA_TOKEN';
+  const snippet = isSolana
+    ? "No smart contract code available (Solana ecosystem). Read the ON-CHAIN SECURITY DATA JSON carefully."
+    : (sourceCode && typeof sourceCode === 'string' ? sourceCode.slice(0, 3000) : '');
+  const chainContext = isSolana ? "Solana" : "Ethereum/EVM";
 
-  const isHoneypot = sd.is_honeypot === "1" ? "YES" : "NO";
-  const isMintable = sd.is_mintable === "1" ? "YES" : "NO";
-  const buyTax = Math.round((sd.buy_tax || 0) * 100);
-  const sellTax = Math.round((sd.sell_tax || 0) * 100);
-  const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls. Analyze this code snippet (which may be incomplete).
-CRITICAL ON-CHAIN DATA:
+  const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls.
+CHAIN: ${chainContext}
 
-Honeypot: ${isHoneypot}
+ON-CHAIN SECURITY DATA (JSON):
+${JSON.stringify(sd)}
 
-Mintable: ${isMintable}
+STRICT RULES:
 
-Buy Tax: ${buyTax}% / Sell Tax: ${sellTax}%
+If EVM and 'is_mintable' or 'mintable' is "1" or true, increase Risk Score to at least 80% and warn about infinite mint dump.
 
-STRICT RULE: If 'Mintable' is YES, this is a massive red flag for a malicious infinite mint dump! You MUST increase the Risk Score to at least 80% and explicitly warn about the developer's ability to arbitrarily mint tokens.
+If Solana and ANY of 'freezable', 'balance_mutable', or 'closable' (or similar admin flags) are "1" or true, increase Risk Score to at least 80% and warn about developer admin privileges.
+
+If Solana and all admin flags are safely renounced ("0", false, or NO), give a Risk Score around 10-20% and explicitly state: "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."
 
 Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
 
@@ -166,6 +168,8 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
         console.log(`✅ Solana Parsing Success!`);
         const sd = data.result[resultKey];
         const meta = sd.metadata || {};
+        let aiAudit = await getAIAudit('SOLANA_TOKEN', sd);
+        const auditLine = `🧠 <b>AI Risk & Audit:</b> ${aiAudit}`;
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
           `⛓️ <b>Chain:</b> Solana\n` +
@@ -174,7 +178,7 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
           `⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n\n` +
-          `🧠 <b>AI Risk & Audit:</b> N/A (Solana; no Etherscan source)\n\n` +
+          `${auditLine}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       } else {
         console.log(`❌ Solana parsing failed. API raw data logged.`);
