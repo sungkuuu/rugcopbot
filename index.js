@@ -48,29 +48,44 @@ async function getContractSourceCode(contractAddress) {
   }
 }
 
-// OpenAI gpt-4o-mini: EVM = code snippet, Solana = JSON data (hybrid)
+// OpenAI gpt-4o-mini: EVM = code snippet, Solana = text flags only
 async function getAIAudit(sourceCode, sd = {}) {
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
 
   const isSolana = sourceCode === 'SOLANA_TOKEN';
   const snippet = isSolana
-    ? "No smart contract code available (Solana ecosystem). Read the ON-CHAIN SECURITY DATA JSON carefully."
+    ? "No smart contract code available. Rely ONLY on the provided API flags."
     : (sourceCode && typeof sourceCode === 'string' ? sourceCode.slice(0, 3000) : '');
   const chainContext = isSolana ? "Solana" : "Ethereum/EVM";
+
+  // EVM 변수 정리
+  const isHoneypot = sd.is_honeypot === "1" ? "YES" : "NO";
+  const isMintable = sd.is_mintable === "1" ? "YES" : "NO";
+  const buyTax = Math.round((sd.buy_tax || 0) * 100);
+  const sellTax = Math.round((sd.sell_tax || 0) * 100);
+
+  // Solana 변수 정리 (GoPlus API 기준 1=YES, 0=NO; nested .status 지원)
+  const solFreezable = (sd.freezable?.status === "1" || sd.freezable === "1" || sd.freezable === 1) ? "YES" : "NO";
+  const solMutable = (sd.balance_mutable_authority?.status === "1" || sd.balance_mutable === "1" || sd.balance_mutable === 1) ? "YES" : "NO";
+  const solClosable = (sd.closable?.status === "1" || sd.closable === "1" || sd.closable === 1) ? "YES" : "NO";
+
+  const securityDataText = isSolana
+    ? `Freezable: ${solFreezable}, Balance Mutable: ${solMutable}, Closable: ${solClosable}`
+    : `Honeypot: ${isHoneypot}, Mintable: ${isMintable}, Buy Tax: ${buyTax}%, Sell Tax: ${sellTax}%`;
 
   const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls.
 CHAIN: ${chainContext}
 
-ON-CHAIN SECURITY DATA (JSON):
-${JSON.stringify(sd)}
+CRITICAL ON-CHAIN DATA:
+${securityDataText}
 
 STRICT RULES:
 
-If EVM and 'is_mintable' or 'mintable' is "1" or true, increase Risk Score to at least 80% and warn about infinite mint dump.
+IF CHAIN IS EVM: If 'Mintable' is YES, increase Risk Score to at least 80% and warn about infinite mint dump.
 
-If Solana and ANY of 'freezable', 'balance_mutable', or 'closable' (or similar admin flags) are "1" or true, increase Risk Score to at least 80% and warn about developer admin privileges.
+IF CHAIN IS SOLANA: If ANY of Freezable, Balance Mutable, or Closable is YES, increase Risk Score to at least 80% and warn about developer admin privileges.
 
-If Solana and all admin flags are safely renounced ("0", false, or NO), give a Risk Score around 10-20% and explicitly state: "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."
+IF CHAIN IS SOLANA AND ALL admin flags (Freezable, Mutable, Closable) are NO: You MUST give a Risk Score around 10-20% and explicitly state: "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."
 
 Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
 
@@ -84,10 +99,9 @@ Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Fo
       max_tokens: 200,
       temperature: 0
     });
-    const text = completion.choices && completion.choices[0] && completion.choices[0].message && completion.choices[0].message.content
+    return completion.choices && completion.choices[0] && completion.choices[0].message && completion.choices[0].message.content
       ? completion.choices[0].message.content.trim()
       : 'N/A (empty response)';
-    return text;
   } catch (e) {
     return `N/A (${e.message || 'API error'})`;
   }
