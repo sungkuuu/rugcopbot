@@ -49,12 +49,18 @@ async function getContractSourceCode(contractAddress) {
 }
 
 // OpenAI gpt-4o-mini: first 3000 chars → risk audit (full)
-async function getAIAudit(sourceCode) {
+async function getAIAudit(sourceCode, sd) {
   if (!sourceCode || typeof sourceCode !== 'string') return 'N/A (no source)';
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
   const snippet = sourceCode.slice(0, 3000);
-  const systemPrompt =
+  let systemPrompt =
     'You are an elite smart contract auditor. Analyze this code for rugpulls, honeypots, or malicious logic. Provide an estimated Risk Score (0-100%) and a 1-sentence punchy explanation. Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]';
+  if (sd) {
+    const apiDataLine =
+      `Here is the API Security Data -> Honeypot: ${sd.is_honeypot}, Mintable: ${sd.is_mintable}, Buy Tax: ${sd.buy_tax}, Sell Tax: ${sd.sell_tax}. ` +
+      'You MUST factor this API data heavily into your Risk Score calculation.';
+    systemPrompt = systemPrompt + '\n\n' + apiDataLine;
+  }
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -118,7 +124,7 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
         const sourceCode = await getContractSourceCode(contractAddress);
         let aiAudit = 'N/A (no verified source)';
         if (sourceCode) {
-          aiAudit = await getAIAudit(sourceCode);
+          aiAudit = await getAIAudit(sourceCode, sd);
         }
         const auditLine = `🧠 <b>AI Risk & Audit:</b> ${aiAudit}`;
         resultMsg =
