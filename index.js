@@ -13,8 +13,19 @@ const { TwitterApi } = require('twitter-api-v2');
 const token = process.env.API_KEY.trim().replace(/\r?\n|\r/g, '');
 const bot = new TelegramBot(token, {
   polling: {
+    interval: 300,
     autoStart: true,
-    params: { timeout: 10 }
+    params: { timeout: 10, allowed_updates: ['message'] }
+  }
+});
+
+// 기존 polling 충돌 방지
+bot.on('polling_error', (err) => {
+  if (err.code === 'ETELEGRAM' && err.message.includes('409')) {
+    console.log('409 conflict - stopping and restarting polling');
+    bot.stopPolling().then(() => {
+      setTimeout(() => bot.startPolling(), 5000);
+    });
   }
 });
 const app = express();
@@ -139,7 +150,7 @@ function getFlags(sd, chain) {
 // ============================================================
 // TWITTER AUTO-ALERT
 // ============================================================
-let lastTweetTime = 0;
+let lastTweetTime = Date.now(); // 시작 시 바로 트윗 못하게
 const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
 
 async function tweetAlert(rug) {
