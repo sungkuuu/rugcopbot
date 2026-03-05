@@ -82,7 +82,7 @@ h1 .r{color:var(--red2)}
 .filter-right{font-size:8px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
 
 /* NFT GRID */
-.token-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,1fr);padding:24px 80px;gap:12px;min-height:360px}
+.token-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:20px 40px;min-height:360px}
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
 
 /* TOKEN CARD — NFT style */
@@ -242,13 +242,6 @@ const STATS='https://rugcopbot-production.up.railway.app/api/stats';
 let allTokens=[];
 let currentFilter='all';
 
-function getRiskLabel(risk){
-  if(risk<=20)return'⭐⭐⭐⭐⭐  LOW RISK';
-  if(risk<=40)return'⭐⭐⭐⭐    LOOKS CLEAN';
-  if(risk<=60)return'⭐⭐⭐      NEUTRAL';
-  if(risk<=80)return'⭐⭐        HIGH RISK';
-  return'⭐          DANGER';
-}
 function getEmoji(name,risk){
   if(risk>=90)return'💀';if(risk<=20)return'✅';
   const n=(name||'').toLowerCase();
@@ -293,10 +286,13 @@ function getImgBg(risk){
 
 function buildCard(t){
   const isHigh=t.risk>=75, isSafe=t.risk<=30;
-  const emoji=getEmoji(t.name,t.risk);
+  const logo=t.logo||null;
+  const imgContent=logo?`<img src="${logo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1" onerror="this.style.display='none'">`:'';
+  const initials=(t.symbol&&t.symbol!=='???'?t.symbol.replace('$','').slice(0,3):t.name?t.name.slice(0,2):'??').toUpperCase();
+  const fallback=logo?'':`<div style="font-family:'Orbitron',sans-serif;font-size:22px;color:rgba(255,255,255,0.15);position:relative;z-index:1;font-weight:700;letter-spacing:0.05em">${initials}</div>`;
   const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
   const cardCls=isSafe?' safe-card':'';
-  const verdictText=(t.riskLabel!=null)?t.riskLabel:getRiskLabel(t.risk);
+  const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
 
   const flags=(t.flags||[]).filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
     const g=f.includes('LOCK')||f==='LP_LOCKED';
@@ -318,7 +314,7 @@ function buildCard(t){
   return`<div class="token-card${cardCls}">
   <div class="tc-img" style="background:var(--bg2)">
     <div style="position:absolute;inset:0;${imgBg}"></div>
-    <span class="tc-emoji">${emoji}</span>
+    ${imgContent}${fallback}
     <div class="tc-img-overlay"></div>
     <span class="tc-chain">${chain}</span>
     <span class="tc-risk-badge ${badgeCls}">${t.risk}%</span>
@@ -363,6 +359,16 @@ async function loadFeed(){
     const res=await fetch(API);
     const json=await res.json();
     allTokens=Array.isArray(json)?json:[];
+    // Fetch logos from DexScreener in background
+    allTokens.forEach(async(t)=>{
+      if(!t.ca||t.logo)return;
+      try{
+        const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.ca}`);
+        const d=await r.json();
+        const logo=d.pairs?.[0]?.info?.imageUrl;
+        if(logo){t.logo=logo;renderGrid();}
+      }catch(e){}
+    });
     renderGrid();
   }catch(e){document.getElementById('tokenGrid').innerHTML='<div class="empty-state">MONITORING LIVE...</div>';}
 }
@@ -411,10 +417,10 @@ async function doScan(ca){
       const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
       const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
       if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
-      risk=Math.min(risk,99);if(risk<10)risk=10;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+      risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
       flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
     }
-    const v=getRiskLabel(risk);
+    const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
     const isSafeResult=risk<=30;
     const buyBtn=isSafeResult
       ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🎯 SNIPE ON BANANA GUN</a>`
