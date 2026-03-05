@@ -10,7 +10,7 @@ const { TwitterApi } = require('twitter-api-v2');
 // ============================================================
 // INIT
 // ============================================================
-const bot = new TelegramBot(process.env.API_KEY, { webHook: false });
+const bot = new TelegramBot(process.env.API_KEY, { polling: true });
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
@@ -388,14 +388,6 @@ function getTimeAgo(ts) {
 }
 
 // ============================================================
-// TELEGRAM WEBHOOK
-// ============================================================
-app.post(`/bot${process.env.API_KEY}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
-
-// ============================================================
 // EXPRESS SERVER START
 // ============================================================
 const PORT = process.env.PORT || 3000;
@@ -403,8 +395,6 @@ app.listen(PORT, () => {
   console.log(`🌐 API server running on port ${PORT}`);
   console.log(`📡 Helius webhook ready at /webhook/helius`);
   console.log(`🔗 Recent rugs API at /api/recent-rugs`);
-  bot.setWebHook(`https://rugcopbot-production.up.railway.app/bot${process.env.API_KEY}`)
-    .then(() => console.log('✅ Telegram webhook set'));
   setInterval(scanTrendingTokens, 900000); // 15분마다
   scanTrendingTokens(); // 시작하자마자 1번 실행
 });
