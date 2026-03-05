@@ -135,6 +135,10 @@ h1 .red { color:var(--red2); }
 .result-verdict strong { color:var(--red2); }
 .result-cta { display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:10px;font-size:9px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all 0.15s; }
 .result-cta:hover { background:rgba(192,57,43,0.1); }
+.result-buy { display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:10px;font-size:9px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all 0.15s; }
+.result-buy:hover { background:rgba(192,57,43,0.1); }
+.tc-btn.tc-buy-btn { display:inline-block;font-size:8px;padding:6px 10px;background:var(--red);color:white;text-decoration:none;font-family:'Orbitron',sans-serif;transition:background 0.15s; }
+.tc-btn.tc-buy-btn:hover { background:var(--red2); }
 .loading { text-align:center;padding:16px;font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px; }
 .spin { width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--red);animation:spin 0.8s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }
@@ -291,6 +295,9 @@ footer { position:relative;z-index:1;padding:20px 60px;border-top:1px solid var(
 </footer>
 
 <script>
+function getBananaLink(ca) {
+  return `https://t.me/BananaGunSniper_bot?start=ref_rugcop_${ca}`;
+}
 async function runScan() {
   const ca = document.getElementById('caInput').value.trim();
   if (!ca) return;
@@ -315,7 +322,7 @@ async function runScan() {
         {k:'Mintable',v:mintable?'🚨 YES':'✅ NO',c:mintable?'val-danger':'val-safe'},
         {k:'Buy Tax',v:buyTax+'%',c:buyTax>10?'val-warn':'val-safe'},
         {k:'Sell Tax',v:sellTax+'%',c:sellTax>10?'val-warn':'val-safe'},
-      ]);
+      ], ca);
     } else {
       const res = await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + ca);
       const data = await res.json();
@@ -331,13 +338,13 @@ async function runScan() {
         {k:'Mutable',v:mutable?'🚨 YES':'✅ NO',c:mutable?'val-danger':'val-safe'},
         {k:'Closable',v:closable?'🚨 YES':'✅ NO',c:closable?'val-danger':'val-safe'},
         {k:'Chain',v:'Solana',c:'val-safe'},
-      ]);
+      ], ca);
     }
   } catch(e) { box.innerHTML = '<div style="font-size:10px;color:#e05040;text-align:center;padding:14px;">Scan failed. Try Telegram bot.</div>'; }
 }
-function buildResult(name,sym,chain,risk,rc,flags) {
+function buildResult(name,sym,chain,risk,rc,flags,ca_addr) {
   const verdict = risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with caution.':'<strong>✅ LOW RISK</strong> — No major flags. DYOR.';
-  return '<div class="result-header"><div><div class="result-name">'+name+'</div><div class="result-sym">'+sym+' · '+chain+'</div></div><span class="risk-pill '+rc+'">RISK '+risk+'%</span></div><div class="result-flags">'+flags.map(f=>'<div class="rflag"><span class="rflag-key">'+f.k+'</span><span class="rflag-val '+f.c+'">'+f.v+'</span></div>').join('')+'</div><div class="result-verdict">'+verdict+'</div><a href="https://t.me/RugCopBot" target="_blank" class="result-cta">FULL SCAN ON TELEGRAM →</a>';
+  return '<div class="result-header"><div><div class="result-name">'+name+'</div><div class="result-sym">'+sym+' · '+chain+'</div></div><span class="risk-pill '+rc+'">RISK '+risk+'%</span></div><div class="result-flags">'+flags.map(f=>'<div class="rflag"><span class="rflag-key">'+f.k+'</span><span class="rflag-val '+f.c+'">'+f.v+'</span></div>').join('')+'</div><div class="result-verdict">'+verdict+'</div><a href="'+getBananaLink(ca_addr)+'" target="_blank" class="result-buy">🍌 SNIPE ON BANANA GUN</a>';
 }
 document.getElementById('caInput').addEventListener('keydown', e => { if(e.key==='Enter') runScan(); });
 
@@ -353,7 +360,7 @@ function buildFeedItem(rug) {
   const name = rug.name && rug.name !== 'Unknown' ? rug.name : (rug.symbol && rug.symbol !== '???' ? rug.symbol : 'UNKNOWN');
   const sym = rug.symbol && rug.symbol !== '???' ? rug.symbol : '';
   const display = sym && sym !== name ? name + ' <span style="color:var(--muted);font-size:8px;">$'+sym+'</span>' : name;
-  return '<div class="feed-item"><div class="feed-left"><div class="feed-icon '+ic+'">'+icon+'</div><div><div class="feed-name">'+display+'</div><div class="feed-flags">'+flags+'</div></div></div><div class="feed-right"><div class="feed-risk '+rc+'">'+rug.risk+'%</div><div class="feed-time">'+(rug.timeAgo||'just now')+' · '+(rug.chain||'SOL')+'</div></div></div>';
+  return '<div class="feed-item"><div class="feed-left"><div class="feed-icon '+ic+'">'+icon+'</div><div><div class="feed-name">'+display+'</div><div class="feed-flags">'+flags+'</div></div></div><div class="feed-right"><div class="feed-risk '+rc+'">'+rug.risk+'%</div><div class="feed-time">'+(rug.timeAgo||'just now')+' · '+(rug.chain||'SOL')+'</div><a href="'+getBananaLink(rug.ca)+'" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a></div></div>';
 }
 
 async function loadFeed() {
