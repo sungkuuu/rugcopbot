@@ -29,7 +29,7 @@ if (process.env.TWITTER_APP_KEY && process.env.TWITTER_APP_SECRET &&
     appKey: process.env.TWITTER_APP_KEY,
     appSecret: process.env.TWITTER_APP_SECRET,
     accessToken: process.env.TWITTER_ACCESS_TOKEN,
-    accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
   });
   console.log('🐦 Twitter client ready');
 } else {
