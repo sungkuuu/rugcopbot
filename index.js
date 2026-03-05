@@ -164,30 +164,20 @@ async function tweetAlert(rug) {
   if (volume24h < 10000) return;
   if (marketCap < 50000) return;
 
-  const { name, symbol, ca, chain, risk } = rug;
+  const { name, symbol, ca, chain, risk, flags } = rug;
   const chainStr = chain || 'SOL';
 
-  const alertMsg = `🔍 GEM DETECTED — $${symbol}
+  const alertMsg = `✅ $${symbol} looks clean
 
-Name: ${name}
+${name} | ${chainStr} | Risk: ${risk}%
 CA: ${ca}
-Chain: ${chainStr}
-Risk: ${risk}%
-Volume 24h: $${Number(volume24h).toLocaleString()}
-Market Cap: $${Number(marketCap).toLocaleString()}
 
-——— TWEET DRAFT ———
-✅ $${symbol} looks clean
+⚖️ Mutable: ${(flags||[]).some(f=>f==='MUTABLE_METADATA'||f==='MUTABLE') ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${(flags||[]).some(f=>f==='FREEZE_AUTHORITY'||f==='FREEZABLE') ? '🚨 YES' : '✅ NO'}
 
-Low risk memecoin just hit our scanner
-CA: ${ca.slice(0,6)}...${ca.slice(-6)}
-Risk Score: ${risk}% ✅
+💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
+📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
 
-Scan before you ape 👇
-rugcop.xyz
-
-#Solana #Memecoin #GemAlert
-———————————`;
+#Solana #Memecoin #GemAlert`;
 
   try {
     lastAdminAlert = Date.now();
@@ -358,20 +348,27 @@ async function scanTrendingTokens() {
         const priceUsd = pair?.priceUsd || 0;
         const logo = pair?.info?.imageUrl || null;
 
+        const rugPayload = {
+          ca,
+          name,
+          symbol,
+          chain: 'SOL',
+          risk: Math.min(risk, 99),
+          flags,
+          volume24h,
+          marketCap,
+          priceUsd,
+          logo,
+        };
+
+        // 위험 토큰 (러그 후보)
+        if (risk >= 70 && volume24h >= 5000) {
+          await saveRug({ ...rugPayload, type: 'danger' });
+        }
+        // 안전 토큰 (젬 후보) — 저장 + 텔레그램 어드민 알림
         if (risk <= 30 && volume24h >= 10000) {
-          await saveRug({
-            ca,
-            name,
-            symbol,
-            chain: 'SOL',
-            risk: Math.min(risk, 99),
-            flags,
-            volume24h,
-            marketCap,
-            priceUsd,
-            logo,
-          });
-          await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, volume24h, marketCap });
+          await saveRug({ ...rugPayload, type: 'clean' });
+          await tweetAlert({ ...rugPayload, volume24h, marketCap });
         }
       } catch(e) { continue; }
       await new Promise(r => setTimeout(r, 2000));
