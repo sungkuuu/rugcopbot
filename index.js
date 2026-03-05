@@ -160,14 +160,19 @@ async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
   const sd = await scanSolanaToken(ca);
-  if (!sd) return;
+  let risk, flags, meta;
 
-  const risk  = calcRisk(sd, 'SOL');
-  const flags = getFlags(sd, 'SOL');
-  const meta  = sd.metadata || {};
+  if (!sd) {
+    risk = 75;
+    flags = ['NO_SCAN_DATA'];
+    meta = {};
+  } else {
+    risk  = calcRisk(sd, 'SOL');
+    flags = getFlags(sd, 'SOL');
+    meta  = sd.metadata || {};
+  }
 
-  // 70% 이상만 저장 + 알림
-  if (risk < 70) {
+  if (risk < 50) {
     console.log(`✅ ${symbol} - Low risk (${risk}%), skipping`);
     return;
   }
