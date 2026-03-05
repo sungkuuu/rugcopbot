@@ -167,7 +167,7 @@ rugcop.xyz | t.me/RugCopBot
     saveTweetedCA(rug.ca);
     console.log(`🐦 Tweeted scam alert: ${rug.symbol}`);
   } catch(e) {
-    console.error('Tweet failed:', e.message);
+    console.error('Tweet failed:', JSON.stringify(e.data || e.errors || e.message));
   }
 }
 
