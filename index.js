@@ -200,14 +200,48 @@ async function processNewToken(ca, name, symbol) {
   let risk, flags, meta;
 
   if (!sd) {
-    risk = 75;
-    flags = ['NO_SCAN_DATA'];
-    meta = {};
-  } else {
-    risk  = calcRisk(sd, 'SOL');
-    flags = getFlags(sd, 'SOL');
-    meta  = sd.metadata || {};
+    // GoPlus 데이터 없을 때 Helius DAS로 실제 데이터 확인
+    try {
+      const assetRes = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAsset', params: { id: ca } })
+      });
+      const assetData = await assetRes.json();
+      const asset = assetData.result;
+
+      let risk = 30;
+      let flags = [];
+
+      // 민팅 권한 있으면 위험
+      if (asset?.mint_extensions || asset?.token_info?.mint_authority) {
+        risk += 30; flags.push('MINT_AUTHORITY');
+      }
+      // 프리즈 권한 있으면 위험
+      if (asset?.token_info?.freeze_authority) {
+        risk += 25; flags.push('FREEZE_AUTHORITY');
+      }
+      // 메타데이터 뮤터블이면 위험
+      if (asset?.mutable === true) {
+        risk += 20; flags.push('MUTABLE_METADATA');
+      }
+
+      const name = asset?.content?.metadata?.name || 'Unknown';
+      const symbol = asset?.content?.metadata?.symbol || '???';
+
+      if (risk < 50) return; // 저위험이면 스킵
+
+      await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+      if (risk >= 50) await tweetScamAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+      return;
+    } catch(e) {
+      return; // 데이터 없으면 스킵 (75% 고정 제거)
+    }
   }
+
+  risk  = calcRisk(sd, 'SOL');
+  flags = getFlags(sd, 'SOL');
+  meta  = sd.metadata || {};
 
   if (risk < 50) {
     console.log(`✅ ${symbol} - Low risk (${risk}%), skipping`);
