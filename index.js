@@ -268,13 +268,55 @@ async function processNewToken(ca, name, symbol) {
 // ============================================================
 async function scanTrendingTokens() {
   try {
+    console.log('🔥 Scanning trending tokens...');
     const res = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
-    const data = await res.json();
-    const solTokens = data.filter(t => t.chainId === 'solana').slice(0, 10);
+    const tokens = await res.json();
+    const solTokens = (Array.isArray(tokens) ? tokens : [])
+      .filter(t => t.chainId === 'solana' && t.tokenAddress)
+      .slice(0, 20);
+
     for (const token of solTokens) {
-      if (!token.tokenAddress) continue;
-      await processNewToken(token.tokenAddress, token.description || 'Unknown', token.symbol || '???');
-      await new Promise(r => setTimeout(r, 3000));
+      const ca = token.tokenAddress;
+      try {
+        const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`);
+        const gpData = await gpRes.json();
+        const key = Object.keys(gpData.result || {})[0];
+        const sd = gpData.result?.[key];
+        if (!sd) continue;
+
+        let risk = 0;
+        let flags = [];
+
+        if (sd.freezable?.status === '1')               { risk += 35; flags.push('FREEZABLE'); }
+        if (sd.balance_mutable_authority?.status === '1'){ risk += 30; flags.push('MUTABLE'); }
+        if (sd.closable?.status === '1')                 { risk += 20; flags.push('CLOSABLE'); }
+        if (sd.transfer_fee_enable?.status === '1')      { risk += 15; flags.push('TRANSFER_FEE'); }
+
+        // 탑 홀더 집중도 체크
+        const topHolders = sd.top_holders || [];
+        const top10pct = topHolders.slice(0,10).reduce((s,h) => s + parseFloat(h.percent||0), 0);
+        if (top10pct > 80) { risk += 25; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
+        else if (top10pct > 50) { risk += 10; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
+
+        // LP 잠금 여부
+        if (sd.lp_holders) {
+          const lockedLP = sd.lp_holders.filter(h => h.is_locked === 1);
+          if (lockedLP.length === 0) { risk += 15; flags.push('LP_UNLOCKED'); }
+          else flags.push('LP_LOCKED');
+        }
+
+        const meta = sd.metadata || {};
+        const name = meta.name || token.description || 'Unknown';
+        const symbol = meta.symbol || '???';
+
+        console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
+
+        if (risk >= 75 || risk <= 25) {
+          await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+          await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+        }
+      } catch(e) { continue; }
+      await new Promise(r => setTimeout(r, 2000));
     }
   } catch(e) { console.error('Trending scan error:', e.message); }
 }
