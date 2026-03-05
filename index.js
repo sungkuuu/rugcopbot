@@ -143,15 +143,16 @@ async function tweetAlert(rug) {
   const displayFlags = (rug.flags || []).filter(f => f !== 'NO_SCAN_DATA');
 
   let text;
-  // 스캠 트윗
+  // 위험 (80% 이상) → 스캠 경고 트윗
+  // 안전 (30% 이하) → 리짓 추천 트윗
+  // 그 사이는 트윗 안 함
   if (rug.risk >= 80) {
     text = `🚨 SCAM ALERT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\n${displayFlags.map(f=>'🚨 '+f).join('\n')}\n\nRisk Score: ${rug.risk}%\n\n🔍 Scan before you ape:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #RugPull #CryptoScam`;
+  } else if (rug.risk <= 30) {
+    text = `✅ LOOKS LEGIT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\nRisk Score: ${rug.risk}% — No major flags\n\n🔍 Verify yourself:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #Memecoin #DYOR`;
+  } else {
+    return;
   }
-  // 안전 트윗 (30% 이하)
-  else if (rug.risk <= 30) {
-    text = `✅ LOOKS LEGIT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\nRisk Score: ${rug.risk}% — No major flags detected\n\n🔍 Always verify:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #Memecoin #DYOR`;
-  }
-  else { return; } // 중간은 트윗 안 함
 
   try {
     const now = Date.now();
@@ -310,7 +311,7 @@ async function scanTrendingTokens() {
 
         console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
 
-        if (risk >= 75 || risk <= 25) {
+        if (risk >= 50 || risk <= 30) {
           await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
           await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
         }
