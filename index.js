@@ -163,7 +163,7 @@ rugcop.xyz | t.me/RugCopBot
 #${rug.chain === 'SOL' ? 'Solana' : 'Ethereum'} #RugPull #CryptoScam`;
 
   try {
-    const rwClient = twitter.readWrite;
+    const rwClient = twitter;
     await rwClient.v2.tweet(text);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
