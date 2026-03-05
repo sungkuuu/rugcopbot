@@ -140,19 +140,19 @@ async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
   if (!process.env.TWITTER_APP_KEY) return;
 
-  const displayFlags = (rug.flags || []).filter(f => f !== 'NO_SCAN_DATA');
+  // risk <= 30 인 것만 트윗
+  if (rug.risk > 30) return;
 
-  let text;
-  // 위험 (80% 이상) → 스캠 경고 트윗
-  // 안전 (30% 이하) → 리짓 추천 트윗
-  // 그 사이는 트윗 안 함
-  if (rug.risk >= 80) {
-    text = `🚨 SCAM ALERT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\n${displayFlags.map(f=>'🚨 '+f).join('\n')}\n\nRisk Score: ${rug.risk}%\n\n🔍 Scan before you ape:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #RugPull #CryptoScam`;
-  } else if (rug.risk <= 30) {
-    text = `✅ LOOKS LEGIT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\nRisk Score: ${rug.risk}% — No major flags\n\n🔍 Verify yourself:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #Memecoin #DYOR`;
-  } else {
-    return;
-  }
+  const text = `✅ GEM ALERT — $${rug.symbol}
+
+Low risk, verified token
+CA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}
+Risk Score: ${rug.risk}% ✅
+
+🔍 rugcop.xyz
+t.me/RugCopBot
+
+#Solana #Memecoin #GemAlert`;
 
   try {
     const now = Date.now();
@@ -311,8 +311,28 @@ async function scanTrendingTokens() {
 
         console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
 
-        if (risk >= 50 || risk <= 30) {
-          await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+        // 각 토큰 스캔 후 DexScreener 데이터 가져오기
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+        const dexData = await dexRes.json();
+        const pair = dexData.pairs?.[0];
+        const volume24h = pair?.volume?.h24 || 0;
+        const marketCap = pair?.marketCap || 0;
+        const priceUsd = pair?.priceUsd || 0;
+        const logo = pair?.info?.imageUrl || null;
+
+        if (risk <= 30) {
+          await saveRug({
+            ca,
+            name,
+            symbol,
+            chain: 'SOL',
+            risk: Math.min(risk, 99),
+            flags,
+            volume24h,
+            marketCap,
+            priceUsd,
+            logo,
+          });
           await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
         }
       } catch(e) { continue; }
