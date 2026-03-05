@@ -11,7 +11,12 @@ const { TwitterApi } = require('twitter-api-v2');
 // INIT
 // ============================================================
 const token = process.env.API_KEY.trim().replace(/\r?\n|\r/g, '');
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token, {
+  polling: {
+    autoStart: true,
+    params: { timeout: 10 }
+  }
+});
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
