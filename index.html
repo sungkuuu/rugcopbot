@@ -242,6 +242,13 @@ const STATS='https://rugcopbot-production.up.railway.app/api/stats';
 let allTokens=[];
 let currentFilter='all';
 
+function getRiskLabel(risk){
+  if(risk<=20)return'⭐⭐⭐⭐⭐  LOW RISK';
+  if(risk<=40)return'⭐⭐⭐⭐    LOOKS CLEAN';
+  if(risk<=60)return'⭐⭐⭐      NEUTRAL';
+  if(risk<=80)return'⭐⭐        HIGH RISK';
+  return'⭐          DANGER';
+}
 function getEmoji(name,risk){
   if(risk>=90)return'💀';if(risk<=20)return'✅';
   const n=(name||'').toLowerCase();
@@ -289,7 +296,7 @@ function buildCard(t){
   const emoji=getEmoji(t.name,t.risk);
   const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
   const cardCls=isSafe?' safe-card':'';
-  const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
+  const verdictText=(t.riskLabel!=null)?t.riskLabel:getRiskLabel(t.risk);
 
   const flags=(t.flags||[]).filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
     const g=f.includes('LOCK')||f==='LP_LOCKED';
@@ -404,10 +411,10 @@ async function doScan(ca){
       const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
       const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
       if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
-      risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+      risk=Math.min(risk,99);if(risk<10)risk=10;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
       flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
     }
-    const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
+    const v=getRiskLabel(risk);
     const isSafeResult=risk<=30;
     const buyBtn=isSafeResult
       ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🎯 SNIPE ON BANANA GUN</a>`

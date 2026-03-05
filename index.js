@@ -103,7 +103,9 @@ function calcRisk(sd, chain) {
     const mutable  = sd.balance_mutable_authority?.status === '1';
     const closable = sd.closable?.status                === '1';
     const flagCount = [freeze, mutable, closable].filter(Boolean).length;
-    return flagCount >= 2 ? 90 : flagCount === 1 ? 75 : 15;
+    let r = flagCount >= 2 ? 90 : flagCount === 1 ? 75 : 15;
+    if (r < 10) r = 10;
+    return r;
   } else {
     const honeypot = sd.is_honeypot === '1';
     const mintable = sd.is_mintable === '1';
@@ -111,7 +113,9 @@ function calcRisk(sd, chain) {
     if (honeypot) return 99;
     if (mintable)  return 85;
     if (sellTax > 20) return 75;
-    return 15;
+    let r = 15;
+    if (r < 10) r = 10;
+    return r;
   }
 }
 
@@ -135,6 +139,8 @@ function getFlags(sd, chain) {
 // ============================================================
 let lastTweetTime = Date.now(); // 시작 시 바로 트윗 못하게
 const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
+let lastAdminAlert = 0;
+const ADMIN_COOLDOWN = 15 * 60 * 1000; // 15분
 
 async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
@@ -147,11 +153,46 @@ async function tweetAlert(rug) {
     return;
   }
 
-  const alertMsg = `🔍 GEM DETECTED\n\n토큰: ${rug.name} $${rug.symbol}\nCA: ${rug.ca}\n리스크: ${rug.risk}%\n체인: ${rug.chain||'SOL'}\n\n📝 트윗 초안:\n✅ GEM ALERT — $${rug.symbol}\n\nLow risk, verified token\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nRisk: ${rug.risk}%\n\n🔍 rugcop.xyz\nt.me/RugCopBot\n\n#Solana #Memecoin #GemAlert`;
+  // 15분에 한 번만 알림
+  if (Date.now() - lastAdminAlert < ADMIN_COOLDOWN) return;
+
+  // 너무 평범한 토큰 제외
+  const volume24h = rug.volume24h ?? 0;
+  const marketCap = rug.marketCap ?? 0;
+  if (!rug.symbol || rug.symbol === '???') return;
+  if (rug.name === 'Unknown') return;
+  if (volume24h < 10000) return;
+  if (marketCap < 50000) return;
+
+  const { name, symbol, ca, chain, risk } = rug;
+  const chainStr = chain || 'SOL';
+
+  const alertMsg = `🔍 GEM DETECTED — $${symbol}
+
+Name: ${name}
+CA: ${ca}
+Chain: ${chainStr}
+Risk: ${risk}%
+Volume 24h: $${Number(volume24h).toLocaleString()}
+Market Cap: $${Number(marketCap).toLocaleString()}
+
+——— TWEET DRAFT ———
+✅ $${symbol} looks clean
+
+Low risk memecoin just hit our scanner
+CA: ${ca.slice(0,6)}...${ca.slice(-6)}
+Risk Score: ${risk}% ✅
+
+Scan before you ape 👇
+rugcop.xyz
+
+#Solana #Memecoin #GemAlert
+———————————`;
 
   try {
+    lastAdminAlert = Date.now();
     await bot.sendMessage(process.env.ADMIN_CHAT_ID, alertMsg);
-    console.log('📩 Admin notified:', rug.symbol);
+    console.log('📩 Admin notified:', symbol);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
   } catch(e) {
@@ -226,6 +267,7 @@ async function processNewToken(ca, name, symbol) {
   risk  = calcRisk(sd, 'SOL');
   flags = getFlags(sd, 'SOL');
   meta  = sd.metadata || {};
+  if (risk < 10) risk = 10;
 
   if (risk > 30 && risk < 50) {
     console.log(`⏭️ ${symbol} - Mid risk (${risk}%), skipping`);
@@ -267,6 +309,13 @@ async function scanTrendingTokens() {
     for (const token of solTokens) {
       const ca = token.tokenAddress;
       try {
+        // DexScreener에서 name/symbol 먼저 가져오기
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+        const dexData = await dexRes.json();
+        const pair = dexData.pairs?.[0];
+        const dexName = pair?.baseToken?.name;
+        const dexSymbol = pair?.baseToken?.symbol;
+
         const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`);
         const gpData = await gpRes.json();
         const key = Object.keys(gpData.result || {})[0];
@@ -293,23 +342,23 @@ async function scanTrendingTokens() {
           if (lockedLP.length === 0) { risk += 15; flags.push('LP_UNLOCKED'); }
           else flags.push('LP_LOCKED');
         }
+        if (risk < 10) risk = 10;
 
         const meta = sd.metadata || {};
-        const name = meta.name || token.description || 'Unknown';
-        const symbol = meta.symbol || '???';
+        // GoPlus에 name/symbol 없거나 Unknown이면 DexScreener 값으로 대체
+        let name = meta.name || token.description;
+        if (!name || name === 'Unknown') name = dexName || 'Unknown';
+        let symbol = meta.symbol;
+        if (!symbol || symbol === '???') symbol = dexSymbol || '???';
 
         console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
 
-        // 각 토큰 스캔 후 DexScreener 데이터 가져오기
-        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
-        const dexData = await dexRes.json();
-        const pair = dexData.pairs?.[0];
         const volume24h = pair?.volume?.h24 || 0;
         const marketCap = pair?.marketCap || 0;
         const priceUsd = pair?.priceUsd || 0;
         const logo = pair?.info?.imageUrl || null;
 
-        if (risk <= 30) {
+        if (risk <= 30 && volume24h >= 10000) {
           await saveRug({
             ca,
             name,
@@ -322,7 +371,7 @@ async function scanTrendingTokens() {
             priceUsd,
             logo,
           });
-          await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+          await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, volume24h, marketCap });
         }
       } catch(e) { continue; }
       await new Promise(r => setTimeout(r, 2000));
@@ -378,6 +427,7 @@ app.get('/api/recent-rugs', (req, res) => {
   const formatted = rugs.map(r => ({
     ...r,
     timeAgo: getTimeAgo(r.time),
+    riskLabel: getRiskLabel(r.risk ?? 0),
   }));
   res.json(formatted);
 });
@@ -395,6 +445,14 @@ function getTimeAgo(ts) {
   if (diff < 60)   return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
   return `${Math.floor(diff/3600)}h ago`;
+}
+
+function getRiskLabel(risk) {
+  if (risk <= 20) return '⭐⭐⭐⭐⭐  LOW RISK';
+  if (risk <= 40) return '⭐⭐⭐⭐    LOOKS CLEAN';
+  if (risk <= 60) return '⭐⭐⭐      NEUTRAL';
+  if (risk <= 80) return '⭐⭐        HIGH RISK';
+  return '⭐          DANGER';
 }
 
 // ============================================================
