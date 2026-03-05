@@ -135,7 +135,7 @@ function getFlags(sd, chain) {
 // TWITTER AUTO-ALERT
 // ============================================================
 let lastTweetTime = 0;
-const TWEET_COOLDOWN = 60000; // 1분에 1개만 트윗
+const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
 
 async function tweetScamAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
@@ -232,7 +232,7 @@ async function processNewToken(ca, name, symbol) {
       if (risk < 50) return; // 저위험이면 스킵
 
       await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
-      if (risk >= 50) await tweetScamAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+      if (risk >= 80) await tweetScamAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
       return;
     } catch(e) {
       return; // 데이터 없으면 스킵 (75% 고정 제거)
@@ -265,7 +265,7 @@ async function processNewToken(ca, name, symbol) {
   }
 
   saveRug(rug);
-  await tweetScamAlert(rug);
+  if (rug.risk >= 80) await tweetScamAlert(rug);
 }
 
 // ============================================================
