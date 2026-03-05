@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RugCop — On-Chain Token Security</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0a0a0a;
+  --bg2:    #111111;
+  --bg3:    #161616;
+  --card:   #0f0f0f;
+  --border: rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --red:    #c0392b;
+  --red2:   #e05040;
+  --green:  #27ae60;
+  --yellow: #d4a017;
+  --text:   #cccccc;
+  --muted:  #555555;
+  --bright: #eeeeee;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Mono', monospace;
+  font-weight:300;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+body::after {
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);
+  pointer-events:none;z-index:999;
+}
+body::before {
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(192,57,43,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(192,57,43,0.04) 1px, transparent 1px);
+  background-size:32px 32px;
+  pointer-events:none;z-index:0;
+}
+nav {
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;height:56px;
+  background:rgba(10,10,10,0.97);
+  border-bottom:1px solid var(--red);
+}
+.nav-logo { font-family:'Orbitron',sans-serif;font-size:13px;color:var(--bright); }
+.nav-logo span { color:var(--red2); }
+.nav-status { display:flex;align-items:center;gap:6px;font-size:9px;color:var(--green);letter-spacing:0.12em; }
+.status-dot { width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+.nav-cta {
+  font-family:'Orbitron',sans-serif;font-size:9px;
+  background:var(--red);color:white;padding:8px 14px;
+  text-decoration:none;transition:background 0.15s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.nav-cta:hover { background:var(--red2); }
+.hero {
+  position:relative;z-index:1;min-height:100vh;
+  display:grid;grid-template-columns:1fr 1fr;padding-top:56px;
+}
+.hero-left {
+  display:flex;flex-direction:column;justify-content:center;
+  padding:60px 50px 60px 60px;border-right:1px solid var(--border);
+}
+.hero-eyebrow {
+  font-size:8px;color:var(--red2);letter-spacing:0.2em;text-transform:uppercase;
+  margin-bottom:24px;display:flex;align-items:center;gap:10px;
+}
+.hero-eyebrow::before { content:'';display:block;width:20px;height:1px;background:var(--red); }
+h1 {
+  font-family:'Orbitron',sans-serif;
+  font-size:clamp(24px,2.8vw,40px);line-height:1.5;
+  color:var(--bright);margin-bottom:24px;
+  text-shadow:3px 3px 0 rgba(192,57,43,0.25);
+}
+h1 .red { color:var(--red2); }
+.hero-sub { font-size:11px;color:var(--muted);max-width:400px;line-height:1.9;margin-bottom:36px; }
+.hero-sub strong { color:var(--text); }
+.scan-widget {
+  background:var(--bg2);border:1px solid var(--red);padding:24px;position:relative;
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+}
+.scan-label {
+  font-size:8px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;
+}
+.chain-badges { display:flex;gap:6px; }
+.chain-badge { font-size:8px;padding:2px 8px; }
+.badge-eth { background:rgba(98,126,234,0.12);color:#8fa3f5;border:1px solid rgba(98,126,234,0.3); }
+.badge-sol { background:rgba(153,69,255,0.12);color:#c084fc;border:1px solid rgba(153,69,255,0.3); }
+.scan-row { display:flex;gap:8px; }
+.scan-input {
+  flex:1;background:var(--bg3);border:1px solid var(--border2);
+  padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+  color:var(--text);outline:none;transition:border-color 0.2s;
+}
+.scan-input::placeholder { color:var(--muted); }
+.scan-input:focus { border-color:var(--red); }
+.scan-btn {
+  background:var(--red);color:white;border:none;padding:12px 18px;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:9px;transition:background 0.15s;white-space:nowrap;
+}
+.scan-btn:hover { background:var(--red2); }
+.result-box { display:none;margin-top:16px; }
+.result-box.show { display:block;animation:fadeUp 0.3s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
+.result-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border); }
+.result-name { font-family:'Orbitron',sans-serif;font-size:12px;color:var(--bright); }
+.result-sym { font-size:10px;color:var(--muted);margin-top:4px; }
+.risk-pill { font-size:10px;font-weight:500;padding:4px 10px;border:1px solid; }
+.risk-high { background:rgba(192,57,43,0.12);color:#e05040;border-color:rgba(192,57,43,0.3); }
+.risk-mid  { background:rgba(212,160,23,0.12);color:#d4a017;border-color:rgba(212,160,23,0.3); }
+.risk-low  { background:rgba(39,174,96,0.12);color:#27ae60;border-color:rgba(39,174,96,0.3); }
+.result-flags { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px; }
+.rflag { background:var(--bg3);border:1px solid var(--border);padding:10px 12px; }
+.rflag-key { font-size:8px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:4px; }
+.rflag-val { font-size:11px;font-weight:500; }
+.val-danger { color:#e05040; } .val-safe { color:#27ae60; } .val-warn { color:#d4a017; }
+.result-verdict { font-size:10px;color:var(--text);line-height:1.8;background:rgba(192,57,43,0.05);border:1px solid rgba(192,57,43,0.15);padding:12px;margin-bottom:14px; }
+.result-verdict strong { color:var(--red2); }
+.result-cta { display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:10px;font-size:9px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all 0.15s; }
+.result-cta:hover { background:rgba(192,57,43,0.1); }
+.loading { text-align:center;padding:16px;font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px; }
+.spin { width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--red);animation:spin 0.8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.hero-right { display:flex;flex-direction:column;justify-content:center;padding:60px 50px; }
+.feed-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border); }
+.feed-title { font-family:'Orbitron',sans-serif;font-size:10px;color:var(--bright);display:flex;align-items:center;gap:10px; }
+.live-badge { font-size:8px;background:rgba(192,57,43,0.12);color:var(--red2);border:1px solid rgba(192,57,43,0.3);padding:2px 8px;letter-spacing:0.1em; }
+.feed-sub { font-size:9px;color:var(--muted); }
+.feed-list { display:flex;flex-direction:column;gap:6px;margin-bottom:24px; }
+.feed-item { background:var(--card);border:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:border-color 0.15s,transform 0.15s;cursor:pointer; }
+.feed-item:hover { border-color:var(--red);transform:translateX(4px); }
+.feed-left { display:flex;align-items:center;gap:10px; }
+.feed-icon { width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0; }
+.icon-danger { background:rgba(192,57,43,0.1); } .icon-warn { background:rgba(212,160,23,0.1); }
+.feed-name { font-family:'Orbitron',sans-serif;font-size:10px;color:var(--bright); }
+.feed-flags { display:flex;gap:4px;margin-top:4px; }
+.fflag { font-size:8px;padding:1px 5px; }
+.fflag-red    { background:rgba(192,57,43,0.1);color:#e05040;border:1px solid rgba(192,57,43,0.25); }
+.fflag-yellow { background:rgba(212,160,23,0.1);color:#d4a017;border:1px solid rgba(212,160,23,0.25); }
+.feed-right { text-align:right;flex-shrink:0; }
+.feed-risk { font-family:'Orbitron',sans-serif;font-size:13px; }
+.risk-red { color:#e05040; } .risk-yellow { color:#d4a017; }
+.feed-time { font-size:9px;color:var(--muted);margin-top:3px; }
+.stats-row { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:20px;border-top:1px solid var(--border); }
+.stat-box { background:var(--card);border:1px solid var(--border);padding:14px; }
+.stat-n { font-family:'Orbitron',sans-serif;font-size:18px;color:var(--bright);display:block; }
+.stat-n .c { color:var(--red2); }
+.stat-l { font-size:8px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-top:6px;display:block; }
+.features { position:relative;z-index:1;padding:60px;border-top:1px solid var(--border); }
+.features-title { font-family:'Orbitron',sans-serif;font-size:14px;color:var(--bright);margin-bottom:32px;text-align:center; }
+.features-title span { color:var(--red2); }
+.features-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border); }
+.feature { background:var(--bg);padding:28px 24px;transition:background 0.15s; }
+.feature:hover { background:var(--bg2); }
+.feature-icon { font-size:20px;margin-bottom:14px;display:block; }
+.feature-title { font-family:'Orbitron',sans-serif;font-size:9px;color:var(--bright);margin-bottom:10px;line-height:1.8; }
+.feature-desc { font-size:10px;color:var(--muted);line-height:1.8; }
+.cta-section { position:relative;z-index:1;padding:80px;text-align:center;border-top:1px solid var(--border); }
+.cta-section h2 { font-family:'Orbitron',sans-serif;font-size:clamp(18px,2.5vw,28px);color:var(--bright);margin-bottom:16px;line-height:1.6; }
+.cta-section h2 span { color:var(--red2); }
+.cta-section p { color:var(--muted);font-size:11px;margin-bottom:36px; }
+.cta-buttons { display:flex;gap:12px;justify-content:center;flex-wrap:wrap; }
+.btn-primary { display:inline-flex;align-items:center;gap:8px;background:var(--red);color:white;padding:14px 28px;font-family:'Orbitron',sans-serif;font-size:10px;text-decoration:none;transition:background 0.15s;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
+.btn-primary:hover { background:var(--red2); }
+.btn-secondary { display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border2);color:var(--text);padding:14px 28px;font-family:'Orbitron',sans-serif;font-size:10px;text-decoration:none;transition:all 0.15s; }
+.btn-secondary:hover { border-color:var(--red2);color:var(--red2); }
+footer { position:relative;z-index:1;padding:20px 60px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+.footer-logo { font-family:'Orbitron',sans-serif;font-size:11px;color:var(--muted); }
+.footer-logo span { color:var(--red2); }
+.footer-links { display:flex;gap:24px; }
+.footer-link { font-size:9px;color:var(--muted);text-decoration:none;transition:color 0.15s; }
+.footer-link:hover { color:var(--text); }
+.footer-note { font-size:9px;color:var(--muted); }
+@media(max-width:900px) {
+  nav { padding:0 20px; }
+  .hero { grid-template-columns:1fr; }
+  .hero-left { padding:40px 24px;border-right:none;border-bottom:1px solid var(--border); }
+  .hero-right { padding:40px 24px; }
+  .features { padding:40px 24px; }
+  .features-grid { grid-template-columns:1fr 1fr; }
+  .cta-section { padding:60px 24px; }
+  footer { padding:20px 24px;flex-direction:column;gap:16px;text-align:center; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">RUG<span>COP</span></div>
+  <div class="nav-status"><span class="status-dot"></span>ONLINE</div>
+  <a href="https://t.me/RugCopBot" target="_blank" class="nav-cta">OPEN BOT →</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-eyebrow">On-Chain Token Security</div>
+    <h1>SCAN<br>BEFORE<br>YOU <span class="red">APE.</span></h1>
+    <p class="hero-sub">
+      Paste any <strong>ETH or Solana</strong> contract address.
+      Instant honeypot detection, mint flags, dev wallet history,
+      and AI risk score — before you buy.
+    </p>
+    <div class="scan-widget">
+      <div class="scan-label">
+        CONTRACT ADDRESS
+        <div class="chain-badges">
+          <span class="chain-badge badge-eth">ETH</span>
+          <span class="chain-badge badge-sol">SOL</span>
+        </div>
+      </div>
+      <div class="scan-row">
+        <input class="scan-input" id="caInput" placeholder="0x... or Solana CA" autocomplete="off" />
+        <button class="scan-btn" onclick="runScan()">SCAN</button>
+      </div>
+      <div class="result-box" id="resultBox"></div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="feed-header">
+      <div class="feed-title">RECENT RUGS <span class="live-badge">● LIVE</span></div>
+      <div class="feed-sub">LAST 24H</div>
+    </div>
+    <div class="feed-list" id="feedList">
+      <div class="loading"><div class="spin"></div> Loading live data...</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><span class="stat-n">247<span class="c">K</span></span><span class="stat-l">Scanned</span></div>
+      <div class="stat-box"><span class="stat-n">18<span class="c">K</span></span><span class="stat-l">Rugs Found</span></div>
+      <div class="stat-box"><span class="stat-n">$<span class="c">0</span></span><span class="stat-l">Cost</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="features-title">HOW <span>RUGCOP</span> WORKS</div>
+  <div class="features-grid">
+    <div class="feature"><span class="feature-icon">🍯</span><div class="feature-title">HONEYPOT DETECTION</div><div class="feature-desc">Real-time simulation detects if a token blocks selling. Catch the trap before you're in it.</div></div>
+    <div class="feature"><span class="feature-icon">🕵️</span><div class="feature-title">DEV WALLET HISTORY</div><div class="feature-desc">We trace the deployer wallet and cross-check every token they've ever launched.</div></div>
+    <div class="feature"><span class="feature-icon">🧠</span><div class="feature-title">AI RISK SCORE</div><div class="feature-desc">GPT-4o analyzes all flags and gives a 0–100% risk score with plain-English verdict.</div></div>
+    <div class="feature"><span class="feature-icon">⚡</span><div class="feature-title">ETH + SOL</div><div class="feature-desc">Auto-detects chain from address format. One paste, instant results. No switching needed.</div></div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <h2>STOP GETTING <span>RUGGED</span>.</h2>
+  <p>Free. No signup. Works on Telegram and the web.</p>
+  <div class="cta-buttons">
+    <a href="https://t.me/RugCopBot" target="_blank" class="btn-primary">🤖 TELEGRAM BOT</a>
+    <a href="https://x.com/RugCopBot" target="_blank" class="btn-secondary">𝕏 @RUGCOPBOT</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">RUG<span>COP</span></div>
+  <div class="footer-links">
+    <a href="https://t.me/RugCopBot" target="_blank" class="footer-link">TELEGRAM</a>
+    <a href="https://x.com/RugCopBot" target="_blank" class="footer-link">TWITTER</a>
+  </div>
+  <div class="footer-note">Not financial advice. DYOR.</div>
+</footer>
+
+<script>
+async function runScan() {
+  const ca = document.getElementById('caInput').value.trim();
+  if (!ca) return;
+  const box = document.getElementById('resultBox');
+  box.className = 'result-box show';
+  box.innerHTML = '<div class="loading"><div class="spin"></div> Scanning on-chain data...</div>';
+  const isEVM = /^0x[a-fA-F0-9]{40}$/.test(ca);
+  const isSolana = !isEVM && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
+  if (!isEVM && !isSolana) { box.innerHTML = '<div style="font-size:10px;color:#e05040;text-align:center;padding:14px;">Invalid address format.</div>'; return; }
+  try {
+    if (isEVM) {
+      const res = await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=' + ca);
+      const data = await res.json();
+      const sd = data.result?.[ca.toLowerCase()];
+      if (!sd) { box.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:14px;">Token not found.</div>'; return; }
+      const honeypot = sd.is_honeypot === '1', mintable = sd.is_mintable === '1';
+      const buyTax = Math.round((sd.buy_tax||0)*100), sellTax = Math.round((sd.sell_tax||0)*100);
+      const risk = honeypot ? 99 : mintable ? 85 : (buyTax>10||sellTax>10) ? 65 : 15;
+      const rc = risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+      box.innerHTML = buildResult(sd.token_name||'?', sd.token_symbol||'?', 'ETH', risk, rc, [
+        {k:'Honeypot',v:honeypot?'🚨 YES':'✅ NO',c:honeypot?'val-danger':'val-safe'},
+        {k:'Mintable',v:mintable?'🚨 YES':'✅ NO',c:mintable?'val-danger':'val-safe'},
+        {k:'Buy Tax',v:buyTax+'%',c:buyTax>10?'val-warn':'val-safe'},
+        {k:'Sell Tax',v:sellTax+'%',c:sellTax>10?'val-warn':'val-safe'},
+      ]);
+    } else {
+      const res = await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + ca);
+      const data = await res.json();
+      const key = Object.keys(data.result||{})[0];
+      const sd = data.result?.[key];
+      if (!sd) { box.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:14px;">Token not found.</div>'; return; }
+      const freeze = sd.freezable?.status==='1', mutable = sd.balance_mutable_authority?.status==='1', closable = sd.closable?.status==='1';
+      const meta = sd.metadata||{};
+      const risk = (freeze||mutable||closable) ? 78 : 15;
+      const rc = risk>=70?'risk-high':'risk-low';
+      box.innerHTML = buildResult(meta.name||'?', meta.symbol||'?', 'SOL', risk, rc, [
+        {k:'Freezable',v:freeze?'🚨 YES':'✅ NO',c:freeze?'val-danger':'val-safe'},
+        {k:'Mutable',v:mutable?'🚨 YES':'✅ NO',c:mutable?'val-danger':'val-safe'},
+        {k:'Closable',v:closable?'🚨 YES':'✅ NO',c:closable?'val-danger':'val-safe'},
+        {k:'Chain',v:'Solana',c:'val-safe'},
+      ]);
+    }
+  } catch(e) { box.innerHTML = '<div style="font-size:10px;color:#e05040;text-align:center;padding:14px;">Scan failed. Try Telegram bot.</div>'; }
+}
+function buildResult(name,sym,chain,risk,rc,flags) {
+  const verdict = risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with caution.':'<strong>✅ LOW RISK</strong> — No major flags. DYOR.';
+  return '<div class="result-header"><div><div class="result-name">'+name+'</div><div class="result-sym">'+sym+' · '+chain+'</div></div><span class="risk-pill '+rc+'">RISK '+risk+'%</span></div><div class="result-flags">'+flags.map(f=>'<div class="rflag"><span class="rflag-key">'+f.k+'</span><span class="rflag-val '+f.c+'">'+f.v+'</span></div>').join('')+'</div><div class="result-verdict">'+verdict+'</div><a href="https://t.me/RugCopBot" target="_blank" class="result-cta">FULL SCAN ON TELEGRAM →</a>';
+}
+document.getElementById('caInput').addEventListener('keydown', e => { if(e.key==='Enter') runScan(); });
+
+const API_URL = 'https://rugcopbot-production.up.railway.app/api/recent-rugs';
+function buildFeedItem(rug) {
+  const icon = rug.risk>=90?'💀':rug.risk>=75?'⚠️':'🧊';
+  const ic = rug.risk>=75?'icon-danger':'icon-warn';
+  const rc = rug.risk>=75?'risk-red':'risk-yellow';
+  const fc = rug.risk>=75?'fflag-red':'fflag-yellow';
+  const flags = (rug.flags||[]).slice(0,2).map(f=>'<span class="fflag '+fc+'">'+f+'</span>').join('');
+  return '<div class="feed-item"><div class="feed-left"><div class="feed-icon '+ic+'">'+icon+'</div><div><div class="feed-name">'+(rug.symbol||'???')+'</div><div class="feed-flags">'+flags+'</div></div></div><div class="feed-right"><div class="feed-risk '+rc+'">'+rug.risk+'%</div><div class="feed-time">'+(rug.timeAgo||'just now')+' · '+(rug.chain||'SOL')+'</div></div></div>';
+}
+async function loadFeed() {
+  const list = document.getElementById('feedList');
+  if (!list) return;
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    if (!data||data.length===0) { list.innerHTML = '<div style="font-size:9px;color:var(--muted);text-align:center;padding:20px;">MONITORING LIVE... NO HIGH-RISK TOKENS YET.</div>'; return; }
+    list.innerHTML = data.slice(0,5).map(buildFeedItem).join('');
+  } catch(e) { list.innerHTML = '<div style="font-size:9px;color:var(--muted);text-align:center;padding:20px;">MONITORING LIVE...</div>'; }
+}
+loadFeed();
+setInterval(loadFeed, 30000);
+</script>
+</body>
+</html>
