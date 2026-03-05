@@ -65,8 +65,25 @@ function saveRug(rug) {
   console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
 }
 
-// 이미 트윗한 CA
-const tweetedCAs = new Set();
+// 이미 트윗한 CA (재시작 후에도 유지)
+const TWEETED_FILE = path.join(__dirname, 'tweeted_cas.json');
+
+function loadTweetedCAs() {
+  try {
+    if (fs.existsSync(TWEETED_FILE)) {
+      return new Set(JSON.parse(fs.readFileSync(TWEETED_FILE, 'utf8')));
+    }
+  } catch(e) {}
+  return new Set();
+}
+
+function saveTweetedCA(ca) {
+  const set = loadTweetedCAs();
+  set.add(ca);
+  fs.writeFileSync(TWEETED_FILE, JSON.stringify([...set]));
+}
+
+const tweetedCAs = loadTweetedCAs();
 
 // ============================================================
 // GOPLUS SOLANA SCAN
@@ -147,6 +164,7 @@ rugcop.xyz | t.me/RugCopBot
   try {
     await twitter.v2.tweet(text);
     tweetedCAs.add(rug.ca);
+    saveTweetedCA(rug.ca);
     console.log(`🐦 Tweeted scam alert: ${rug.symbol}`);
   } catch(e) {
     console.error('Tweet failed:', e.message);
