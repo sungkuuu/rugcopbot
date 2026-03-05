@@ -141,7 +141,8 @@ async function tweetScamAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
   if (!process.env.TWITTER_APP_KEY) return;
 
-  const flagText = rug.flags.map(f => `🚨 ${f}`).join('\n');
+  const displayFlags = (rug.flags || []).filter(f => f !== 'NO_SCAN_DATA');
+  const flagText = displayFlags.map(f => `🚨 ${f}`).join('\n');
   const shortCA  = `${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}`;
 
   const text =
@@ -179,6 +180,19 @@ rugcop.xyz | t.me/RugCopBot
 // ============================================================
 // PROCESS NEW TOKEN (Helius webhook에서 호출)
 // ============================================================
+async function getTokenMeta(ca) {
+  try {
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAsset', params: { id: ca } })
+    });
+    const data = await res.json();
+    const meta = data.result?.content?.metadata;
+    return { name: meta?.name || 'Unknown', symbol: meta?.symbol || '???' };
+  } catch(e) { return { name: 'Unknown', symbol: '???' }; }
+}
+
 async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
@@ -209,6 +223,12 @@ async function processNewToken(ca, name, symbol) {
     flags,
     time:   Date.now(),
   };
+
+  if (rug.name === 'Unknown' && (rug.symbol === '???' || rug.symbol == null)) {
+    const metaFromHelius = await getTokenMeta(ca);
+    rug.name = metaFromHelius.name;
+    rug.symbol = metaFromHelius.symbol;
+  }
 
   saveRug(rug);
   await tweetScamAlert(rug);
