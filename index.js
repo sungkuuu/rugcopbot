@@ -22,12 +22,23 @@ app.use((req, res, next) => {
 const ETHERSCAN_API_KEY = (process.env.ETHERSCAN_API_KEY || '').trim();
 const HELIUS_API_KEY    = (process.env.HELIUS_API_KEY    || '').trim();
 
-const twitter = new TwitterApi({
-  appKey:            process.env.TWITTER_APP_KEY,
-  appSecret:         process.env.TWITTER_APP_SECRET,
-  accessToken:       process.env.TWITTER_ACCESS_TOKEN,
-  accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-});
+let twitter = null;
+try {
+  if (process.env.TWITTER_APP_KEY && process.env.TWITTER_APP_SECRET &&
+      process.env.TWITTER_ACCESS_TOKEN && process.env.TWITTER_ACCESS_TOKEN_SECRET) {
+    twitter = new TwitterApi({
+      appKey:            process.env.TWITTER_APP_KEY,
+      appSecret:         process.env.TWITTER_APP_SECRET,
+      accessToken:       process.env.TWITTER_ACCESS_TOKEN,
+      accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+    });
+    console.log('🐦 Twitter API initialized');
+  } else {
+    console.log('⚠️ Twitter keys missing - alerts disabled');
+  }
+} catch(e) {
+  console.log('⚠️ Twitter init failed:', e.message);
+}
 
 // ============================================================
 // RECENT RUGS STORAGE (JSON 파일)
