@@ -138,35 +138,24 @@ const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
 
 async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
-  if (!process.env.TWITTER_APP_KEY) return;
 
-  // risk <= 30 인 것만 트윗
+  // risk <= 30 인 것만 알림
   if (rug.risk > 30) return;
 
-  const text = `✅ GEM ALERT — $${rug.symbol}
+  if (!process.env.ADMIN_CHAT_ID) {
+    console.log('⚠️ ADMIN_CHAT_ID not set, skipping admin alert');
+    return;
+  }
 
-Low risk, verified token
-CA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}
-Risk Score: ${rug.risk}% ✅
-
-🔍 rugcop.xyz
-t.me/RugCopBot
-
-#Solana #Memecoin #GemAlert`;
+  const alertMsg = `🔍 GEM DETECTED\n\n토큰: ${rug.name} $${rug.symbol}\nCA: ${rug.ca}\n리스크: ${rug.risk}%\n체인: ${rug.chain||'SOL'}\n\n📝 트윗 초안:\n✅ GEM ALERT — $${rug.symbol}\n\nLow risk, verified token\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nRisk: ${rug.risk}%\n\n🔍 rugcop.xyz\nt.me/RugCopBot\n\n#Solana #Memecoin #GemAlert`;
 
   try {
-    const now = Date.now();
-    if (now - lastTweetTime < TWEET_COOLDOWN) {
-      console.log('⏳ Tweet cooldown, skipping...');
-      return;
-    }
-    lastTweetTime = now;
-    await twitter.v2.tweet(text);
+    await bot.sendMessage(process.env.ADMIN_CHAT_ID, alertMsg);
+    console.log('📩 Admin notified:', rug.symbol);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
-    console.log(`🐦 Tweeted: ${rug.symbol} (risk ${rug.risk}%)`);
   } catch(e) {
-    console.error('Tweet failed:', JSON.stringify(e.data || e.errors || e.message));
+    console.error('Admin alert failed:', e.message);
   }
 }
 
