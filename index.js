@@ -10,24 +10,7 @@ const { TwitterApi } = require('twitter-api-v2');
 // ============================================================
 // INIT
 // ============================================================
-const token = process.env.API_KEY.trim().replace(/\r?\n|\r/g, '');
-const bot = new TelegramBot(token, {
-  polling: {
-    interval: 300,
-    autoStart: true,
-    params: { timeout: 10, allowed_updates: ['message'] }
-  }
-});
-
-// 기존 polling 충돌 방지
-bot.on('polling_error', (err) => {
-  if (err.code === 'ETELEGRAM' && err.message.includes('409')) {
-    console.log('409 conflict - stopping and restarting polling');
-    bot.stopPolling().then(() => {
-      setTimeout(() => bot.startPolling(), 5000);
-    });
-  }
-});
+const bot = new TelegramBot(process.env.API_KEY, { webHook: false });
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
@@ -405,6 +388,14 @@ function getTimeAgo(ts) {
 }
 
 // ============================================================
+// TELEGRAM WEBHOOK
+// ============================================================
+app.post(`/bot${process.env.API_KEY}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// ============================================================
 // EXPRESS SERVER START
 // ============================================================
 const PORT = process.env.PORT || 3000;
@@ -412,6 +403,8 @@ app.listen(PORT, () => {
   console.log(`🌐 API server running on port ${PORT}`);
   console.log(`📡 Helius webhook ready at /webhook/helius`);
   console.log(`🔗 Recent rugs API at /api/recent-rugs`);
+  bot.setWebHook(`https://rugcopbot-production.up.railway.app/bot${process.env.API_KEY}`)
+    .then(() => console.log('✅ Telegram webhook set'));
   setInterval(scanTrendingTokens, 900000); // 15분마다
   scanTrendingTokens(); // 시작하자마자 1번 실행
 });
@@ -476,7 +469,6 @@ Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
   } catch(e) { return `N/A (${e.message})`; }
 }
 
-bot.on('polling_error', (error) => console.log("🚨 Polling Error:", error.message));
 console.log("🚨 RUGCOP RADAR is online. (Ethereum + Solana)");
 
 bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
