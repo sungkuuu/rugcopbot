@@ -137,29 +137,22 @@ function getFlags(sd, chain) {
 let lastTweetTime = 0;
 const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
 
-async function tweetScamAlert(rug) {
+async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
   if (!process.env.TWITTER_APP_KEY) return;
 
   const displayFlags = (rug.flags || []).filter(f => f !== 'NO_SCAN_DATA');
-  const flagText = displayFlags.map(f => `🚨 ${f}`).join('\n');
-  const shortCA  = `${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}`;
 
-  const text =
-`🚨 SCAM ALERT — $${rug.symbol}
-
-Token: ${rug.name}
-CA: ${shortCA}
-Chain: ${rug.chain}
-
-${flagText}
-
-Risk Score: ${rug.risk}%
-
-🔍 Scan before you ape:
-rugcop.xyz | t.me/RugCopBot
-
-#${rug.chain === 'SOL' ? 'Solana' : 'Ethereum'} #RugPull #CryptoScam`;
+  let text;
+  // 스캠 트윗
+  if (rug.risk >= 80) {
+    text = `🚨 SCAM ALERT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\n${displayFlags.map(f=>'🚨 '+f).join('\n')}\n\nRisk Score: ${rug.risk}%\n\n🔍 Scan before you ape:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #RugPull #CryptoScam`;
+  }
+  // 안전 트윗 (30% 이하)
+  else if (rug.risk <= 30) {
+    text = `✅ LOOKS LEGIT — $${rug.symbol}\n\nToken: ${rug.name}\nCA: ${rug.ca.slice(0,6)}...${rug.ca.slice(-6)}\nChain: ${rug.chain}\n\nRisk Score: ${rug.risk}% — No major flags detected\n\n🔍 Always verify:\nrugcop.xyz | t.me/RugCopBot\n\n#Solana #Memecoin #DYOR`;
+  }
+  else { return; } // 중간은 트윗 안 함
 
   try {
     const now = Date.now();
@@ -171,7 +164,7 @@ rugcop.xyz | t.me/RugCopBot
     await twitter.v2.tweet(text);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
-    console.log(`🐦 Tweeted scam alert: ${rug.symbol}`);
+    console.log(`🐦 Tweeted: ${rug.symbol} (risk ${rug.risk}%)`);
   } catch(e) {
     console.error('Tweet failed:', JSON.stringify(e.data || e.errors || e.message));
   }
@@ -229,10 +222,12 @@ async function processNewToken(ca, name, symbol) {
       const name = asset?.content?.metadata?.name || 'Unknown';
       const symbol = asset?.content?.metadata?.symbol || '???';
 
-      if (risk < 50) return; // 저위험이면 스킵
+      if (risk > 30 && risk < 50) return; // 중간 위험은 스킵
 
-      await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
-      if (risk >= 80) await tweetScamAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+      if (risk <= 30 || risk >= 50) {
+        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+        if (risk <= 30 || risk >= 80) await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+      }
       return;
     } catch(e) {
       return; // 데이터 없으면 스킵 (75% 고정 제거)
@@ -243,8 +238,8 @@ async function processNewToken(ca, name, symbol) {
   flags = getFlags(sd, 'SOL');
   meta  = sd.metadata || {};
 
-  if (risk < 50) {
-    console.log(`✅ ${symbol} - Low risk (${risk}%), skipping`);
+  if (risk > 30 && risk < 50) {
+    console.log(`⏭️ ${symbol} - Mid risk (${risk}%), skipping`);
     return;
   }
 
@@ -265,7 +260,23 @@ async function processNewToken(ca, name, symbol) {
   }
 
   saveRug(rug);
-  if (rug.risk >= 80) await tweetScamAlert(rug);
+  if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
+}
+
+// ============================================================
+// DEXSCREENER 트렌딩 토큰 자동 스캔 (15분마다)
+// ============================================================
+async function scanTrendingTokens() {
+  try {
+    const res = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
+    const data = await res.json();
+    const solTokens = data.filter(t => t.chainId === 'solana').slice(0, 10);
+    for (const token of solTokens) {
+      if (!token.tokenAddress) continue;
+      await processNewToken(token.tokenAddress, token.description || 'Unknown', token.symbol || '???');
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  } catch(e) { console.error('Trending scan error:', e.message); }
 }
 
 // ============================================================
@@ -343,6 +354,8 @@ app.listen(PORT, () => {
   console.log(`🌐 API server running on port ${PORT}`);
   console.log(`📡 Helius webhook ready at /webhook/helius`);
   console.log(`🔗 Recent rugs API at /api/recent-rugs`);
+  setInterval(scanTrendingTokens, 900000); // 15분마다
+  scanTrendingTokens(); // 시작하자마자 1번 실행
 });
 
 // ============================================================
