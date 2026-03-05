@@ -3,395 +3,429 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RugCop — On-Chain Token Security</title>
+<title>RugCop — Scan Before You Ape</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:     #0a0a0a;
-  --bg2:    #111111;
-  --bg3:    #161616;
-  --card:   #0f0f0f;
-  --border: rgba(255,255,255,0.07);
-  --border2:rgba(255,255,255,0.12);
-  --red:    #c0392b;
-  --red2:   #e05040;
-  --green:  #27ae60;
-  --yellow: #d4a017;
-  --text:   #cccccc;
-  --muted:  #555555;
-  --bright: #eeeeee;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body {
-  background:var(--bg);
-  color:var(--text);
-  font-family:'IBM Plex Mono', monospace;
-  font-weight:300;
-  line-height:1.6;
-  overflow-x:hidden;
-}
-body::after {
-  content:'';position:fixed;inset:0;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);
-  pointer-events:none;z-index:999;
-}
-body::before {
-  content:'';position:fixed;inset:0;
-  background-image:
-    linear-gradient(rgba(192,57,43,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(192,57,43,0.04) 1px, transparent 1px);
-  background-size:32px 32px;
-  pointer-events:none;z-index:0;
-}
-nav {
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 40px;height:56px;
-  background:rgba(10,10,10,0.97);
-  border-bottom:1px solid var(--red);
-}
-.nav-logo { font-family:'Orbitron',sans-serif;font-size:13px;color:var(--bright); }
-.nav-logo span { color:var(--red2); }
-.nav-status { display:flex;align-items:center;gap:6px;font-size:9px;color:var(--green);letter-spacing:0.12em; }
-.status-dot { width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite; }
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
-.nav-cta {
-  font-family:'Orbitron',sans-serif;font-size:9px;
-  background:var(--red);color:white;padding:8px 14px;
-  text-decoration:none;transition:background 0.15s;
-  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
-}
-.nav-cta:hover { background:var(--red2); }
+:root{--bg:#080808;--bg2:#0f0f0f;--bg3:#141414;--card:#0c0c0c;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--red:#b83228;--red2:#d94535;--green:#1a9e50;--yellow:#c49a14;--text:#a8a8a8;--muted:#3a3a3a;--bright:#e2e2e2}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;font-weight:300;line-height:1.6;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(184,50,40,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(184,50,40,0.02) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
 
-/* HERO — full width centered */
-.hero {
-  position:relative;z-index:1;
-  min-height:100vh;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:100px 40px 60px;
-  text-align:center;
-}
-.hero-eyebrow {
-  font-size:8px;color:var(--red2);letter-spacing:0.2em;text-transform:uppercase;
-  margin-bottom:24px;display:flex;align-items:center;justify-content:center;gap:10px;
-}
-.hero-eyebrow::before,.hero-eyebrow::after { content:'';display:block;width:30px;height:1px;background:var(--red); }
-h1 {
-  font-family:'Orbitron',sans-serif;
-  font-size:clamp(36px,6vw,72px);line-height:1.15;
-  color:var(--bright);margin-bottom:20px;
-  text-shadow:4px 4px 0 rgba(192,57,43,0.3);
-  letter-spacing:0.05em;
-}
-h1 .red { color:var(--red2); }
-.hero-sub { font-size:11px;color:var(--muted);max-width:480px;line-height:1.9;margin:0 auto 40px; }
-.hero-sub strong { color:var(--text); }
+nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:54px;background:rgba(8,8,8,0.98);border-bottom:1px solid var(--red)}
+.nav-logo{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--bright);letter-spacing:0.08em}
+.nav-logo span{color:var(--red2)}
+.nav-pills{display:flex;gap:4px}
+.nav-pill{font-size:8px;color:var(--muted);padding:4px 10px;border:1px solid var(--border);letter-spacing:0.08em}
+.nav-pill strong{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-live{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--green);letter-spacing:0.12em}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+.nav-cta{font-family:'Orbitron',sans-serif;font-size:8px;background:var(--red);color:white;padding:8px 16px;text-decoration:none;transition:background .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.nav-cta:hover{background:var(--red2)}
 
-/* SCAN WIDGET */
-.scan-widget {
-  background:var(--bg2);border:1px solid var(--red);padding:24px;position:relative;
-  width:100%;max-width:600px;margin:0 auto 60px;
-  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
-}
-.scan-label {
-  font-size:8px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;
-  margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;
-}
-.chain-badges { display:flex;gap:6px; }
-.chain-badge { font-size:8px;padding:2px 8px; }
-.badge-eth { background:rgba(98,126,234,0.12);color:#8fa3f5;border:1px solid rgba(98,126,234,0.3); }
-.badge-sol { background:rgba(153,69,255,0.12);color:#c084fc;border:1px solid rgba(153,69,255,0.3); }
-.scan-row { display:flex;gap:8px; }
-.scan-input {
-  flex:1;background:var(--bg3);border:1px solid var(--border2);
-  padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;
-  color:var(--text);outline:none;transition:border-color 0.2s;
-}
-.scan-input::placeholder { color:var(--muted); }
-.scan-input:focus { border-color:var(--red); }
-.scan-btn {
-  background:var(--red);color:white;border:none;padding:12px 18px;cursor:pointer;
-  font-family:'Orbitron',sans-serif;font-size:9px;transition:background 0.15s;white-space:nowrap;
-}
-.scan-btn:hover { background:var(--red2); }
-.result-box { display:none;margin-top:16px;text-align:left; }
-.result-box.show { display:block;animation:fadeUp 0.3s ease; }
-@keyframes fadeUp { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
-.result-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border); }
-.result-name { font-family:'Orbitron',sans-serif;font-size:12px;color:var(--bright); }
-.result-sym { font-size:10px;color:var(--muted);margin-top:4px; }
-.risk-pill { font-size:10px;font-weight:500;padding:4px 10px;border:1px solid; }
-.risk-high { background:rgba(192,57,43,0.12);color:#e05040;border-color:rgba(192,57,43,0.3); }
-.risk-mid  { background:rgba(212,160,23,0.12);color:#d4a017;border-color:rgba(212,160,23,0.3); }
-.risk-low  { background:rgba(39,174,96,0.12);color:#27ae60;border-color:rgba(39,174,96,0.3); }
-.result-flags { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px; }
-.rflag { background:var(--bg3);border:1px solid var(--border);padding:10px 12px; }
-.rflag-key { font-size:8px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:4px; }
-.rflag-val { font-size:11px;font-weight:500; }
-.val-danger { color:#e05040; } .val-safe { color:#27ae60; } .val-warn { color:#d4a017; }
-.result-verdict { font-size:10px;color:var(--text);line-height:1.8;background:rgba(192,57,43,0.05);border:1px solid rgba(192,57,43,0.15);padding:12px;margin-bottom:14px; }
-.result-verdict strong { color:var(--red2); }
-.result-cta { display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:10px;font-size:9px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all 0.15s; }
-.result-cta:hover { background:rgba(192,57,43,0.1); }
-.result-buy { display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:10px;font-size:9px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all 0.15s; }
-.result-buy:hover { background:rgba(192,57,43,0.1); }
-.tc-btn.tc-buy-btn { display:inline-block;font-size:8px;padding:6px 10px;background:var(--red);color:white;text-decoration:none;font-family:'Orbitron',sans-serif;transition:background 0.15s; }
-.tc-btn.tc-buy-btn:hover { background:var(--red2); }
-.loading { text-align:center;padding:16px;font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px; }
-.spin { width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--red);animation:spin 0.8s linear infinite; }
-@keyframes spin { to{transform:rotate(360deg)} }
+.hero{position:relative;z-index:1;text-align:center;padding:64px 40px 44px}
+.hero-eye{font-size:8px;color:var(--red2);letter-spacing:.2em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:10px}
+.hero-eye::before,.hero-eye::after{content:'';display:block;width:22px;height:1px;background:var(--red)}
+h1{font-family:'Orbitron',sans-serif;font-size:clamp(36px,5vw,68px);line-height:1.1;color:var(--bright);margin-bottom:12px;text-shadow:3px 3px 0 rgba(184,50,40,0.18);letter-spacing:.04em}
+h1 .r{color:var(--red2)}
+.hero-sub{font-size:10px;color:var(--muted);max-width:480px;margin:0 auto 32px;line-height:2}
+.hero-sub strong{color:var(--text)}
 
-/* RECENT RUGS — full width below hero */
-.feed-section {
-  position:relative;z-index:1;
-  padding:60px 40px;
-  border-top:1px solid var(--border);
-  max-width:900px;margin:0 auto;width:100%;
-}
-.feed-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border); }
-.feed-title { font-family:'Orbitron',sans-serif;font-size:10px;color:var(--bright);display:flex;align-items:center;gap:10px; }
-.live-badge { font-size:8px;background:rgba(192,57,43,0.12);color:var(--red2);border:1px solid rgba(192,57,43,0.3);padding:2px 8px;letter-spacing:0.1em; }
-.feed-sub { font-size:9px;color:var(--muted); }
-.feed-list { display:flex;flex-direction:column;gap:6px;margin-bottom:24px; }
-.feed-item { background:var(--card);border:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:border-color 0.15s,transform 0.15s;cursor:pointer; }
-.feed-item:hover { border-color:var(--red);transform:translateX(4px); }
-.feed-left { display:flex;align-items:center;gap:10px; }
-.feed-icon { width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0; }
-.icon-danger { background:rgba(192,57,43,0.1); } .icon-warn { background:rgba(212,160,23,0.1); }
-.feed-name { font-family:'Orbitron',sans-serif;font-size:10px;color:var(--bright); }
-.feed-flags { display:flex;gap:4px;margin-top:4px; }
-.fflag { font-size:8px;padding:1px 5px; }
-.fflag-red    { background:rgba(192,57,43,0.1);color:#e05040;border:1px solid rgba(192,57,43,0.25); }
-.fflag-yellow { background:rgba(212,160,23,0.1);color:#d4a017;border:1px solid rgba(212,160,23,0.25); }
-.feed-right { text-align:right;flex-shrink:0; }
-.feed-risk { font-family:'Orbitron',sans-serif;font-size:13px; }
-.risk-red { color:#e05040; } .risk-yellow { color:#d4a017; }
-.feed-time { font-size:9px;color:var(--muted);margin-top:3px; }
-.stats-row { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:20px;border-top:1px solid var(--border); }
-.stat-box { background:var(--card);border:1px solid var(--border);padding:14px;text-align:center; }
-.stat-n { font-family:'Orbitron',sans-serif;font-size:22px;color:var(--bright);display:block; }
-.stat-n .c { color:var(--red2); }
-.stat-l { font-size:8px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-top:6px;display:block; }
+.scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:6px}
+.scan-input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
+.scan-input::placeholder{color:var(--muted)}
+.scan-input:focus{border-color:var(--red)}
+.scan-btn{background:var(--red);color:white;border:none;padding:13px 20px;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;transition:background .15s;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.scan-btn:hover{background:var(--red2)}
+.scan-result{max-width:600px;margin:0 auto 0}
+.result-box{display:none}.result-box.show{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.loading{text-align:center;padding:16px;font-size:9px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--red);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-card{background:var(--bg2);border:1px solid var(--border2);padding:20px;text-align:left}
+.result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.result-name{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--bright)}
+.result-sym{font-size:9px;color:var(--muted);margin-top:3px}
+.risk-pill{font-size:10px;padding:4px 11px;border:1px solid;font-family:'Orbitron',sans-serif}
+.risk-high{background:rgba(184,50,40,.1);color:#d94535;border-color:rgba(184,50,40,.3)}
+.risk-mid{background:rgba(196,154,20,.1);color:#c49a14;border-color:rgba(196,154,20,.3)}
+.risk-low{background:rgba(26,158,80,.1);color:#1a9e50;border-color:rgba(26,158,80,.3)}
+.result-flags{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.rflag{background:var(--bg3);border:1px solid var(--border);padding:10px}
+.rflag-key{font-size:7px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:3px}
+.rflag-val{font-size:10px;font-weight:500}
+.val-danger{color:#d94535}.val-safe{color:#1a9e50}.val-warn{color:#c49a14}
+.result-verdict{font-size:9px;color:var(--text);line-height:1.9;background:rgba(184,50,40,.04);border:1px solid rgba(184,50,40,.1);padding:12px;margin-bottom:12px}
+.result-verdict strong{color:var(--red2)}
+.result-actions{display:flex;gap:6px}
+.result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
+.result-cta:hover{background:rgba(184,50,40,.08)}
+.result-buy{flex:1;display:block;text-align:center;background:var(--green);color:white;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:opacity .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.result-buy:hover{opacity:.85}
+.result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3)}
+
+.stats-strip{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.sstat{background:var(--bg2);padding:18px;text-align:center}
+.sstat-n{font-family:'Orbitron',sans-serif;font-size:22px;color:var(--bright);display:block}
+.sstat-n .c{color:var(--red2)}
+.sstat-l{font-size:7px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:5px;display:block}
+
+.filter-bar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:14px 40px;border-bottom:1px solid var(--border);background:var(--bg)}
+.filter-left{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.filter-btn{font-family:'Orbitron',sans-serif;font-size:8px;padding:6px 13px;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);border:1px solid var(--border);letter-spacing:.06em}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--red);color:white;border-color:var(--red)}
+.filter-btn.safe-active{background:var(--green);color:white;border-color:var(--green)}
+.filter-right{font-size:8px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+
+/* NFT GRID */
+.token-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:20px 40px;min-height:360px}
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
+
+/* TOKEN CARD — NFT style */
+.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;cursor:default;position:relative;display:flex;flex-direction:column}
+.token-card:hover{border-color:rgba(184,50,40,.35);transform:translateY(-3px)}
+.token-card.safe-card:hover{border-color:rgba(26,158,80,.35)}
+
+.tc-img{width:100%;aspect-ratio:1;background:var(--bg2);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex-shrink:0}
+.tc-emoji{font-size:64px;user-select:none;line-height:1;filter:drop-shadow(0 0 20px rgba(255,255,255,.08))}
+.tc-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(8,8,8,.9) 100%)}
+.tc-risk-badge{position:absolute;bottom:10px;right:10px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;padding:3px 10px;backdrop-filter:blur(6px);border:1px solid}
+.badge-danger{background:rgba(8,8,8,.8);color:#e04030;border-color:rgba(184,50,40,.6)}
+.badge-warn{background:rgba(8,8,8,.8);color:#c49a14;border-color:rgba(196,154,20,.5)}
+.badge-safe{background:rgba(8,8,8,.8);color:#1a9e50;border-color:rgba(26,158,80,.5)}
+.tc-chain{position:absolute;top:10px;left:10px;font-size:7px;padding:3px 8px;background:rgba(8,8,8,.85);color:var(--text);border:1px solid var(--border2);letter-spacing:.1em}
+.tc-verdict{position:absolute;bottom:10px;left:10px;font-size:8px;font-family:'Orbitron',sans-serif;color:white;letter-spacing:.06em}
+
+.tc-body{padding:14px;flex:1;display:flex;flex-direction:column;gap:8px}
+.tc-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-sym{font-size:9px;color:var(--muted);margin-top:-4px}
+.tc-flags{display:flex;gap:3px;flex-wrap:wrap;min-height:18px}
+.tcf{font-size:7px;padding:2px 5px;border:1px solid}
+.tcf-danger{background:rgba(184,50,40,.07);color:#c44030;border-color:rgba(184,50,40,.2)}
+.tcf-safe{background:rgba(26,158,80,.07);color:#1a9e50;border-color:rgba(26,158,80,.2)}
+.tcf-warn{background:rgba(196,154,20,.07);color:#a88010;border-color:rgba(196,154,20,.2)}
+
+.tc-footer{display:flex;gap:5px;margin-top:auto}
+.tc-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;padding:8px;text-align:center;text-decoration:none;transition:all .15s;letter-spacing:.05em;display:block;border:1px solid}
+.tc-scan-btn{background:transparent;border-color:var(--border2);color:var(--text)}
+.tc-scan-btn:hover{border-color:var(--red);color:var(--red2)}
+.tc-buy-btn{background:var(--green);color:white;border-color:transparent;clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px))}
+.tc-buy-btn:hover{opacity:.82}
+.tc-skip-btn{background:rgba(184,50,40,.08);color:#c44030;border-color:rgba(184,50,40,.2);pointer-events:none}
+.tc-time{font-size:7px;color:var(--muted);letter-spacing:.06em;text-align:right;margin-top:4px}
 
 /* FEATURES */
-.features { position:relative;z-index:1;padding:60px 40px;border-top:1px solid var(--border); }
-.features-title { font-family:'Orbitron',sans-serif;font-size:14px;color:var(--bright);margin-bottom:32px;text-align:center; }
-.features-title span { color:var(--red2); }
-.features-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);max-width:1000px;margin:0 auto; }
-.feature { background:var(--bg);padding:28px 24px;transition:background 0.15s; }
-.feature:hover { background:var(--bg2); }
-.feature-icon { font-size:20px;margin-bottom:14px;display:block; }
-.feature-title { font-family:'Orbitron',sans-serif;font-size:9px;color:var(--bright);margin-bottom:10px;line-height:1.8; }
-.feature-desc { font-size:10px;color:var(--muted);line-height:1.8; }
+.features{position:relative;z-index:1;padding:56px 40px;border-top:1px solid var(--border)}
+.features-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--bright);margin-bottom:26px;text-align:center;letter-spacing:.08em}
+.features-title span{color:var(--red2)}
+.features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);max-width:960px;margin:0 auto}
+.feature{background:var(--bg);padding:22px 18px;transition:background .15s}
+.feature:hover{background:var(--bg2)}
+.fi{font-size:18px;margin-bottom:10px;display:block}
+.ft{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--bright);margin-bottom:7px;line-height:1.9;letter-spacing:.06em}
+.fd{font-size:9px;color:var(--muted);line-height:1.9}
 
-/* CTA */
-.cta-section { position:relative;z-index:1;padding:80px 40px;text-align:center;border-top:1px solid var(--border); }
-.cta-section h2 { font-family:'Orbitron',sans-serif;font-size:clamp(18px,2.5vw,28px);color:var(--bright);margin-bottom:16px;line-height:1.6; }
-.cta-section h2 span { color:var(--red2); }
-.cta-section p { color:var(--muted);font-size:11px;margin-bottom:36px; }
-.cta-buttons { display:flex;gap:12px;justify-content:center;flex-wrap:wrap; }
-.btn-primary { display:inline-flex;align-items:center;gap:8px;background:var(--red);color:white;padding:14px 28px;font-family:'Orbitron',sans-serif;font-size:10px;text-decoration:none;transition:background 0.15s;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
-.btn-primary:hover { background:var(--red2); }
-.btn-secondary { display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border2);color:var(--text);padding:14px 28px;font-family:'Orbitron',sans-serif;font-size:10px;text-decoration:none;transition:all 0.15s; }
-.btn-secondary:hover { border-color:var(--red2);color:var(--red2); }
+.cta-section{position:relative;z-index:1;border-top:1px solid var(--border);padding:68px 40px;text-align:center}
+.cta-section h2{font-family:'Orbitron',sans-serif;font-size:clamp(16px,2.5vw,26px);color:var(--bright);margin-bottom:12px;line-height:1.6;letter-spacing:.06em}
+.cta-section h2 span{color:var(--red2)}
+.cta-section p{color:var(--muted);font-size:10px;margin-bottom:28px}
+.cta-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-p{display:inline-flex;align-items:center;gap:7px;background:var(--red);color:white;padding:13px 26px;font-family:'Orbitron',sans-serif;font-size:9px;text-decoration:none;transition:background .15s;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px))}
+.btn-p:hover{background:var(--red2)}
+.btn-s{display:inline-flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--border2);color:var(--text);padding:13px 26px;font-family:'Orbitron',sans-serif;font-size:9px;text-decoration:none;transition:all .15s}
+.btn-s:hover{border-color:var(--red2);color:var(--red2)}
 
-footer { position:relative;z-index:1;padding:20px 60px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
-.footer-logo { font-family:'Orbitron',sans-serif;font-size:11px;color:var(--muted); }
-.footer-logo span { color:var(--red2); }
-.footer-links { display:flex;gap:24px; }
-.footer-link { font-size:9px;color:var(--muted);text-decoration:none;transition:color 0.15s; }
-.footer-link:hover { color:var(--text); }
-.footer-note { font-size:9px;color:var(--muted); }
+footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18px 40px;display:flex;align-items:center;justify-content:space-between}
+.fl{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted)}.fl span{color:var(--red2)}
+.flinks{display:flex;gap:20px}
+.flink{font-size:8px;color:var(--muted);text-decoration:none;transition:color .15s;letter-spacing:.08em}.flink:hover{color:var(--text)}
+.fnote{font-size:8px;color:var(--muted)}
 
-@media(max-width:900px) {
-  nav { padding:0 20px; }
-  .hero { padding:100px 20px 40px; }
-  .features { padding:40px 20px; }
-  .features-grid { grid-template-columns:1fr 1fr; }
-  .cta-section { padding:60px 20px; }
-  footer { padding:20px 24px;flex-direction:column;gap:16px;text-align:center; }
-  .feed-section { padding:40px 20px; }
+@media(max-width:900px){
+  nav{padding:0 16px}.nav-pills{display:none}
+  .hero{padding:50px 20px 32px}
+  .filter-bar{padding:12px 16px;flex-direction:column;gap:8px;align-items:flex-start}
+  .token-grid{grid-template-columns:repeat(2,1fr);padding:14px 16px;gap:8px}
+  .stats-strip{grid-template-columns:1fr 1fr}
+  .features{padding:40px 20px}.features-grid{grid-template-columns:1fr 1fr}
+  .cta-section{padding:50px 20px}
+  footer{padding:16px 20px;flex-direction:column;gap:10px;text-align:center}
 }
+@media(max-width:480px){.token-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <nav>
   <div class="nav-logo">RUG<span>COP</span></div>
-  <div class="nav-status"><span class="status-dot"></span>ONLINE</div>
-  <a href="https://t.me/RugCopBot" target="_blank" class="nav-cta">OPEN BOT →</a>
+  <div class="nav-pills">
+    <div class="nav-pill">SCANNED <strong id="navScanned">—</strong></div>
+    <div class="nav-pill">RUGS TODAY <strong id="navRugs">—</strong></div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-live"><span class="dot"></span>LIVE</div>
+    <a href="https://t.me/RugCopBot" target="_blank" class="nav-cta">🤖 FREE SCAN</a>
+  </div>
 </nav>
 
 <section class="hero">
-  <div class="hero-eyebrow">On-Chain Token Security</div>
-  <h1>SCAN<br>BEFORE<br>YOU <span class="red">APE.</span></h1>
-  <p class="hero-sub">
-    Paste any <strong>ETH or Solana</strong> contract address.
-    Instant honeypot detection, mint flags, dev wallet history,
-    and AI risk score — before you buy.
-  </p>
-  <div class="scan-widget">
-    <div class="scan-label">
-      CONTRACT ADDRESS
-      <div class="chain-badges">
-        <span class="chain-badge badge-eth">ETH</span>
-        <span class="chain-badge badge-sol">SOL</span>
-      </div>
-    </div>
-    <div class="scan-row">
-      <input class="scan-input" id="caInput" placeholder="0x... or Solana CA" autocomplete="off" />
-      <button class="scan-btn" onclick="runScan()">SCAN</button>
-    </div>
+  <div class="hero-eye">On-Chain Token Security</div>
+  <h1>SCAN<br>BEFORE<br>YOU <span class="r">APE.</span></h1>
+  <p class="hero-sub">Paste any <strong>ETH or SOL</strong> contract. Instant risk score, dev wallet history — snipe or skip in seconds.</p>
+  <div class="scan-bar">
+    <input class="scan-input" id="caInput" placeholder="0x... or Solana CA" autocomplete="off"/>
+    <button class="scan-btn" onclick="runScan()">SCAN →</button>
+  </div>
+  <div class="scan-result">
     <div class="result-box" id="resultBox"></div>
   </div>
 </section>
 
-<!-- RECENT RUGS — full width section -->
-<div style="position:relative;z-index:1;border-top:1px solid var(--border);">
-  <div class="feed-section">
-    <div class="feed-header">
-      <div class="feed-title">RECENT RUGS <span class="live-badge">● LIVE</span></div>
-      <div class="feed-sub">LAST 24H</div>
-    </div>
-    <div class="feed-list" id="feedList">
-      <div class="loading"><div class="spin"></div> Loading live data...</div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-box"><span class="stat-n" id="statScanned">—</span><span class="stat-l">Scanned</span></div>
-      <div class="stat-box"><span class="stat-n" id="statRugs">—</span><span class="stat-l">Rugs Found</span></div>
-      <div class="stat-box"><span class="stat-n">$<span class="c">0</span></span><span class="stat-l">Cost</span></div>
-    </div>
-  </div>
+<div class="stats-strip">
+  <div class="sstat"><span class="sstat-n" id="statScanned">—</span><span class="sstat-l">Total Scanned</span></div>
+  <div class="sstat"><span class="sstat-n" id="statRugs">—</span><span class="sstat-l">Rugs Found</span></div>
+  <div class="sstat"><span class="sstat-n"><span class="c">SOL</span>+<span class="c">ETH</span></span><span class="sstat-l">Chains</span></div>
+  <div class="sstat"><span class="sstat-n"><span class="c">$0</span></span><span class="sstat-l">Cost</span></div>
 </div>
 
-<section class="features" id="features">
-  <div class="features-title">HOW <span>RUGCOP</span> WORKS</div>
+<div class="filter-bar">
+  <div class="filter-left">
+    <button class="filter-btn active" onclick="setFilter('all',this)">ALL</button>
+    <button class="filter-btn" onclick="setFilter('danger',this)">🚨 HIGH RISK</button>
+    <button class="filter-btn" onclick="setFilter('safe',this)">✅ LOOKS SAFE</button>
+    <button class="filter-btn" onclick="setFilter('sol',this)">◎ SOLANA</button>
+    <button class="filter-btn" onclick="setFilter('eth',this)">⬡ ETHEREUM</button>
+  </div>
+  <div class="filter-right" id="filterCount">LOADING...</div>
+</div>
+
+<div class="token-grid" id="tokenGrid">
+  <div class="empty-state"><div class="spin" style="margin:0 auto 12px"></div>SCANNING LIVE TOKENS...</div>
+</div>
+
+<section class="features">
+  <div class="features-title">HOW <span>RUGCOP</span> PROTECTS YOU</div>
   <div class="features-grid">
-    <div class="feature"><span class="feature-icon">🍯</span><div class="feature-title">HONEYPOT DETECTION</div><div class="feature-desc">Real-time simulation detects if a token blocks selling. Catch the trap before you're in it.</div></div>
-    <div class="feature"><span class="feature-icon">🕵️</span><div class="feature-title">DEV WALLET HISTORY</div><div class="feature-desc">We trace the deployer wallet and cross-check every token they've ever launched.</div></div>
-    <div class="feature"><span class="feature-icon">🧠</span><div class="feature-title">AI RISK SCORE</div><div class="feature-desc">GPT-4o analyzes all flags and gives a 0–100% risk score with plain-English verdict.</div></div>
-    <div class="feature"><span class="feature-icon">⚡</span><div class="feature-title">ETH + SOL</div><div class="feature-desc">Auto-detects chain from address format. One paste, instant results. No switching needed.</div></div>
+    <div class="feature"><span class="fi">🍯</span><div class="ft">HONEYPOT DETECTION</div><div class="fd">Simulates buys and sells to detect if a token blocks you from exiting.</div></div>
+    <div class="feature"><span class="fi">🕵️</span><div class="ft">DEV WALLET HISTORY</div><div class="fd">Traces the deployer's wallet across all previous token launches.</div></div>
+    <div class="feature"><span class="fi">🧠</span><div class="ft">AI RISK SCORE</div><div class="fd">GPT-4o synthesizes every flag into a 0–100% risk verdict with context.</div></div>
+    <div class="feature"><span class="fi">🎯</span><div class="ft">SNIPE OR SKIP</div><div class="fd">Buy directly via Banana Gun or Maestro without leaving the page.</div></div>
   </div>
 </section>
 
 <section class="cta-section">
   <h2>STOP GETTING <span>RUGGED</span>.</h2>
   <p>Free. No signup. Works on Telegram and the web.</p>
-  <div class="cta-buttons">
-    <a href="https://t.me/RugCopBot" target="_blank" class="btn-primary">🤖 TELEGRAM BOT</a>
-    <a href="https://x.com/RugCopBot" target="_blank" class="btn-secondary">𝕏 @RUGCOPBOT</a>
+  <div class="cta-btns">
+    <a href="https://t.me/RugCopBot" target="_blank" class="btn-p">🤖 TELEGRAM BOT</a>
+    <a href="https://x.com/RugCopBot" target="_blank" class="btn-s">𝕏 @RUGCOPBOT</a>
   </div>
 </section>
 
 <footer>
-  <div class="footer-logo">RUG<span>COP</span></div>
-  <div class="footer-links">
-    <a href="https://t.me/RugCopBot" target="_blank" class="footer-link">TELEGRAM</a>
-    <a href="https://x.com/RugCopBot" target="_blank" class="footer-link">TWITTER</a>
+  <div class="fl">RUG<span>COP</span></div>
+  <div class="flinks">
+    <a href="https://t.me/RugCopBot" target="_blank" class="flink">TELEGRAM</a>
+    <a href="https://x.com/RugCopBot" target="_blank" class="flink">TWITTER</a>
+    <a href="mailto:contact@rugcop.xyz" class="flink">CONTACT</a>
   </div>
-  <div class="footer-note">Not financial advice. DYOR.</div>
+  <div class="fnote">Not financial advice. DYOR.</div>
 </footer>
 
 <script>
-function getBananaLink(ca) {
-  return `https://t.me/BananaGunSniper_bot?start=ref_rugcop_${ca}`;
+const API='https://rugcopbot-production.up.railway.app/api/recent-rugs';
+const STATS='https://rugcopbot-production.up.railway.app/api/stats';
+let allTokens=[];
+let currentFilter='all';
+
+function getEmoji(name,risk){
+  if(risk>=90)return'💀';if(risk<=20)return'✅';
+  const n=(name||'').toLowerCase();
+  if(n.includes('dog')||n.includes('doge'))return'🐕';
+  if(n.includes('cat')||n.includes('kitty'))return'🐱';
+  if(n.includes('pepe')||n.includes('frog'))return'🐸';
+  if(n.includes('ape')||n.includes('monk'))return'🦍';
+  if(n.includes('moon'))return'🌙';
+  if(n.includes('sol'))return'☀️';
+  if(n.includes('baby'))return'👶';
+  if(n.includes('elon')||n.includes('musk'))return'🚀';
+  if(n.includes('trump'))return'🇺🇸';
+  if(n.includes('ai'))return'🤖';
+  if(n.includes('war'))return'⚔️';
+  if(n.includes('fire'))return'🔥';
+  if(n.includes('gold'))return'🏆';
+  const pool=['💎','⚡','🎯','🔮','💫','🌊','🦊','🐉','🎪','🎭','🌀','🔱'];
+  return pool[Math.abs((name||'?').charCodeAt(0))%pool.length];
 }
-async function runScan() {
-  const ca = document.getElementById('caInput').value.trim();
-  if (!ca) return;
-  const box = document.getElementById('resultBox');
-  box.className = 'result-box show';
-  box.innerHTML = '<div class="loading"><div class="spin"></div> Scanning on-chain data...</div>';
-  const isEVM = /^0x[a-fA-F0-9]{40}$/.test(ca);
-  const isSolana = !isEVM && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
-  if (!isEVM && !isSolana) { box.innerHTML = '<div style="font-size:10px;color:#e05040;text-align:center;padding:14px;">Invalid address format.</div>'; return; }
-  try {
-    if (isEVM) {
-      const res = await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=' + ca);
-      const data = await res.json();
-      const sd = data.result?.[ca.toLowerCase()];
-      if (!sd) { box.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:14px;">Token not found.</div>'; return; }
-      const honeypot = sd.is_honeypot === '1', mintable = sd.is_mintable === '1';
-      const buyTax = Math.round((sd.buy_tax||0)*100), sellTax = Math.round((sd.sell_tax||0)*100);
-      const risk = honeypot ? 99 : mintable ? 85 : (buyTax>10||sellTax>10) ? 65 : 15;
-      const rc = risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-      box.innerHTML = buildResult(sd.token_name||'Unknown', sd.token_symbol||'?', 'ETH', risk, rc, [
-        {k:'Honeypot',v:honeypot?'🚨 YES':'✅ NO',c:honeypot?'val-danger':'val-safe'},
-        {k:'Mintable',v:mintable?'🚨 YES':'✅ NO',c:mintable?'val-danger':'val-safe'},
-        {k:'Buy Tax',v:buyTax+'%',c:buyTax>10?'val-warn':'val-safe'},
-        {k:'Sell Tax',v:sellTax+'%',c:sellTax>10?'val-warn':'val-safe'},
-      ], ca);
-    } else {
-      const res = await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + ca);
-      const data = await res.json();
-      const key = Object.keys(data.result||{})[0];
-      const sd = data.result?.[key];
-      if (!sd) { box.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:14px;">Token not found.</div>'; return; }
-      const freeze = sd.freezable?.status==='1', mutable = sd.balance_mutable_authority?.status==='1', closable = sd.closable?.status==='1';
-      const meta = sd.metadata||{};
-      const risk = (freeze||mutable||closable) ? 78 : 15;
-      const rc = risk>=70?'risk-high':'risk-low';
-      box.innerHTML = buildResult(meta.name||'Unknown', meta.symbol||'?', 'SOL', risk, rc, [
-        {k:'Freezable',v:freeze?'🚨 YES':'✅ NO',c:freeze?'val-danger':'val-safe'},
-        {k:'Mutable',v:mutable?'🚨 YES':'✅ NO',c:mutable?'val-danger':'val-safe'},
-        {k:'Closable',v:closable?'🚨 YES':'✅ NO',c:closable?'val-danger':'val-safe'},
-        {k:'Chain',v:'Solana',c:'val-safe'},
-      ], ca);
+
+function getBananaLink(ca,chain){
+  return chain==='SOL'
+    ?`https://t.me/BananaGunSolBot?start=snipe_${ca}`
+    :`https://t.me/BananaGunBot?start=snipe_${ca}`;
+}
+
+function timeAgo(ts){
+  if(!ts)return'';
+  const d=Date.now()-new Date(ts).getTime();
+  const s=Math.floor(d/1000);
+  if(s<60)return s+'s ago';
+  const m=Math.floor(s/60);
+  if(m<60)return m+'m ago';
+  return Math.floor(m/60)+'h ago';
+}
+
+function getImgBg(risk){
+  if(risk>=75)return'radial-gradient(ellipse at center, rgba(184,50,40,0.18) 0%, transparent 70%)';
+  if(risk<=30)return'radial-gradient(ellipse at center, rgba(26,158,80,0.15) 0%, transparent 70%)';
+  return'radial-gradient(ellipse at center, rgba(196,154,20,0.12) 0%, transparent 70%)';
+}
+
+function buildCard(t){
+  const isHigh=t.risk>=75, isSafe=t.risk<=30;
+  const emoji=getEmoji(t.name,t.risk);
+  const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
+  const cardCls=isSafe?' safe-card':'';
+  const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
+
+  const flags=(t.flags||[]).filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
+    const g=f.includes('LOCK')||f==='LP_LOCKED';
+    const w=f.includes('FEE')||f.includes('HOLD');
+    return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
+  }).join('');
+
+  const name=t.name&&t.name!=='Unknown'?t.name:(t.symbol&&t.symbol!=='???'?t.symbol:'UNKNOWN');
+  const sym=t.symbol&&t.symbol!=='???'?'$'+t.symbol:'';
+  const ca=t.ca||'';
+  const chain=t.chain||'SOL';
+  const tago=t.timestamp?timeAgo(t.timestamp):'';
+  const imgBg=getImgBg(t.risk);
+
+  const buyBtn=isSafe
+    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🎯 SNIPE</a>`
+    :`<span class="tc-btn tc-skip-btn">⛔ SKIP</span>`;
+
+  return`<div class="token-card${cardCls}">
+  <div class="tc-img" style="background:var(--bg2)">
+    <div style="position:absolute;inset:0;${imgBg}"></div>
+    <span class="tc-emoji">${emoji}</span>
+    <div class="tc-img-overlay"></div>
+    <span class="tc-chain">${chain}</span>
+    <span class="tc-risk-badge ${badgeCls}">${t.risk}%</span>
+    <span class="tc-verdict">${verdictText}</span>
+  </div>
+  <div class="tc-body">
+    <div>
+      <div class="tc-name">${name}</div>
+      <div class="tc-sym">${sym}</div>
+    </div>
+    <div class="tc-flags">${flags||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
+    <div class="tc-footer">
+      <a href="https://t.me/RugCopBot" target="_blank" class="tc-btn tc-scan-btn">🔍 SCAN</a>
+      ${buyBtn}
+    </div>
+    ${tago?`<div class="tc-time">${tago}</div>`:''}
+  </div>
+</div>`;
+}
+
+function setFilter(f,el){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active','safe-active'));
+  el.classList.add(f==='safe'?'safe-active':'active');
+  renderGrid();
+}
+
+function renderGrid(){
+  const grid=document.getElementById('tokenGrid');
+  let data=allTokens;
+  if(currentFilter==='danger')data=allTokens.filter(t=>t.risk>=75);
+  else if(currentFilter==='safe')data=allTokens.filter(t=>t.risk<=30);
+  else if(currentFilter==='sol')data=allTokens.filter(t=>(t.chain||'SOL')==='SOL');
+  else if(currentFilter==='eth')data=allTokens.filter(t=>t.chain==='ETH');
+  document.getElementById('filterCount').textContent=data.length+' TOKENS';
+  if(!data.length){grid.innerHTML='<div class="empty-state">NO TOKENS IN THIS FILTER YET — MONITORING LIVE...</div>';return;}
+  grid.innerHTML=data.slice(0,24).map(buildCard).join('');
+}
+
+async function loadFeed(){
+  try{
+    const res=await fetch(API);
+    const json=await res.json();
+    allTokens=Array.isArray(json)?json:[];
+    renderGrid();
+  }catch(e){document.getElementById('tokenGrid').innerHTML='<div class="empty-state">MONITORING LIVE...</div>';}
+}
+
+async function loadStats(){
+  try{
+    const res=await fetch(STATS);
+    const d=await res.json();
+    if(d.total){
+      const fmt=d.total>1000?Math.round(d.total/1000)+'<span class="c">K</span>':d.total;
+      ['statScanned','navScanned'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=fmt});
     }
-  } catch(e) { box.innerHTML = '<div style="font-size:10px;color:#e05040;text-align:center;padding:14px;">Scan failed. Try Telegram bot.</div>'; }
-}
-function buildResult(name,sym,chain,risk,rc,flags,ca_addr) {
-  const verdict = risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with caution.':'<strong>✅ LOW RISK</strong> — No major flags. DYOR.';
-  return '<div class="result-header"><div><div class="result-name">'+name+'</div><div class="result-sym">'+sym+' · '+chain+'</div></div><span class="risk-pill '+rc+'">RISK '+risk+'%</span></div><div class="result-flags">'+flags.map(f=>'<div class="rflag"><span class="rflag-key">'+f.k+'</span><span class="rflag-val '+f.c+'">'+f.v+'</span></div>').join('')+'</div><div class="result-verdict">'+verdict+'</div><a href="'+getBananaLink(ca_addr)+'" target="_blank" class="result-buy">🍌 SNIPE ON BANANA GUN</a>';
-}
-document.getElementById('caInput').addEventListener('keydown', e => { if(e.key==='Enter') runScan(); });
-
-const API_URL = 'https://rugcopbot-production.up.railway.app/api/recent-rugs';
-const STATS_URL = 'https://rugcopbot-production.up.railway.app/api/stats';
-
-function buildFeedItem(rug) {
-  const icon = rug.risk>=90?'💀':rug.risk>=75?'⚠️':'🧊';
-  const ic = rug.risk>=75?'icon-danger':'icon-warn';
-  const rc = rug.risk>=75?'risk-red':'risk-yellow';
-  const fc = rug.risk>=75?'fflag-red':'fflag-yellow';
-  const flags = (rug.flags||[]).filter(f=>f!=='NO_SCAN_DATA').slice(0,2).map(f=>'<span class="fflag '+fc+'">'+f+'</span>').join('');
-  const name = rug.name && rug.name !== 'Unknown' ? rug.name : (rug.symbol && rug.symbol !== '???' ? rug.symbol : 'UNKNOWN');
-  const sym = rug.symbol && rug.symbol !== '???' ? rug.symbol : '';
-  const display = sym && sym !== name ? name + ' <span style="color:var(--muted);font-size:8px;">$'+sym+'</span>' : name;
-  return '<div class="feed-item"><div class="feed-left"><div class="feed-icon '+ic+'">'+icon+'</div><div><div class="feed-name">'+display+'</div><div class="feed-flags">'+flags+'</div></div></div><div class="feed-right"><div class="feed-risk '+rc+'">'+rug.risk+'%</div><div class="feed-time">'+(rug.timeAgo||'just now')+' · '+(rug.chain||'SOL')+'</div><a href="'+getBananaLink(rug.ca)+'" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a></div></div>';
+    if(d.last24h)['statRugs','navRugs'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=d.last24h});
+  }catch(e){}
 }
 
-async function loadFeed() {
-  const list = document.getElementById('feedList');
-  if (!list) return;
-  try {
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    if (!data||data.length===0) { list.innerHTML = '<div style="font-size:9px;color:var(--muted);text-align:center;padding:20px;">MONITORING LIVE... NO HIGH-RISK TOKENS YET.</div>'; return; }
-    list.innerHTML = data.slice(0,8).map(buildFeedItem).join('');
-  } catch(e) { list.innerHTML = '<div style="font-size:9px;color:var(--muted);text-align:center;padding:20px;">MONITORING LIVE...</div>'; }
-}
-
-async function loadStats() {
-  try {
-    const res = await fetch(STATS_URL);
-    const data = await res.json();
-    if (data.total) {
-      const n = data.total;
-      const el = document.getElementById('statScanned');
-      if (el) el.innerHTML = n > 1000 ? Math.round(n/1000)+'<span class="c">K</span>' : n;
-      const r = document.getElementById('statRugs');
-      if (r) r.innerHTML = data.last24h || '—';
+async function doScan(ca){
+  const box=document.getElementById('resultBox');
+  box.className='result-box show';
+  box.innerHTML='<div class="loading"><div class="spin"></div> Scanning on-chain data...</div>';
+  const isEVM=/^0x[a-fA-F0-9]{40}$/.test(ca);
+  const isSol=!isEVM&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
+  if(!isEVM&&!isSol){box.innerHTML='<div style="font-size:9px;color:#d94535;text-align:center;padding:12px;">Invalid address.</div>';return;}
+  try{
+    let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
+    if(isEVM){
+      chain='ETH';
+      const res=await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses='+ca);
+      const data=await res.json();
+      const sd=data.result?.[ca.toLowerCase()];
+      if(!sd){box.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:12px;">Token not found.</div>';return;}
+      name=sd.token_name||'Unknown';sym=sd.token_symbol||'?';
+      const hp=sd.is_honeypot==='1',mt=sd.is_mintable==='1';
+      const bt=Math.round((sd.buy_tax||0)*100),st=Math.round((sd.sell_tax||0)*100);
+      risk=hp?99:mt?85:(bt>10||st>10)?65:15;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+      flags=[{k:'Honeypot',v:hp?'🚨 YES':'✅ NO',c:hp?'val-danger':'val-safe'},{k:'Mintable',v:mt?'🚨 YES':'✅ NO',c:mt?'val-danger':'val-safe'},{k:'Buy Tax',v:bt+'%',c:bt>10?'val-warn':'val-safe'},{k:'Sell Tax',v:st+'%',c:st>10?'val-warn':'val-safe'}];
+    }else{
+      chain='SOL';
+      const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
+      const data=await res.json();
+      const key=Object.keys(data.result||{})[0];
+      const sd=data.result?.[key];
+      if(!sd){box.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:12px;">Token not found.</div>';return;}
+      const fz=sd.freezable?.status==='1',mu=sd.balance_mutable_authority?.status==='1',cl=sd.closable?.status==='1';
+      const topH=sd.top_holders||[];
+      const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
+      const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
+      if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
+      risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+      flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
     }
-  } catch(e) {}
+    const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
+    const isSafeResult=risk<=30;
+    const buyBtn=isSafeResult
+      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🎯 SNIPE ON BANANA GUN</a>`
+      :`<a class="result-buy disabled">⚠️ TOO RISKY TO SNIPE</a>`;
+    box.innerHTML=`<div class="result-card">
+      <div class="result-header"><div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div><span class="risk-pill ${rc}">${risk}%</span></div>
+      <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+      <div class="result-verdict">${v}</div>
+      <div class="result-actions"><a href="https://t.me/RugCopBot" target="_blank" class="result-cta">🔍 FULL SCAN ON TG</a>${buyBtn}</div>
+    </div>`;
+  }catch(e){box.innerHTML='<div style="font-size:9px;color:#d94535;text-align:center;padding:12px;">Scan failed. Try Telegram bot.</div>';}
 }
 
-loadFeed();
-loadStats();
-setInterval(loadFeed, 30000);
-setInterval(loadStats, 60000);
+function runScan(){const ca=document.getElementById('caInput').value.trim();if(ca)doScan(ca);}
+document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
+
+loadFeed();loadStats();
+setInterval(loadFeed,30000);setInterval(loadStats,60000);
 </script>
 </body>
 </html>
