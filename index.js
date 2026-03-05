@@ -134,6 +134,9 @@ function getFlags(sd, chain) {
 // ============================================================
 // TWITTER AUTO-ALERT
 // ============================================================
+let lastTweetTime = 0;
+const TWEET_COOLDOWN = 60000; // 1분에 1개만 트윗
+
 async function tweetScamAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
   if (!process.env.TWITTER_APP_KEY) return;
@@ -158,6 +161,12 @@ rugcop.xyz | t.me/RugCopBot
 #${rug.chain === 'SOL' ? 'Solana' : 'Ethereum'} #RugPull #CryptoScam`;
 
   try {
+    const now = Date.now();
+    if (now - lastTweetTime < TWEET_COOLDOWN) {
+      console.log('⏳ Tweet cooldown, skipping...');
+      return;
+    }
+    lastTweetTime = now;
     await twitter.v2.tweet(text);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
