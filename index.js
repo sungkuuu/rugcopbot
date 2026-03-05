@@ -23,22 +23,17 @@ const ETHERSCAN_API_KEY = (process.env.ETHERSCAN_API_KEY || '').trim();
 const HELIUS_API_KEY    = (process.env.HELIUS_API_KEY    || '').trim();
 
 let twitter = null;
-try {
-  if (process.env.TWITTER_APP_KEY && process.env.TWITTER_APP_SECRET &&
-      process.env.TWITTER_ACCESS_TOKEN && process.env.TWITTER_ACCESS_TOKEN_SECRET) {
-    const client = new TwitterApi({
-      appKey:            process.env.TWITTER_APP_KEY,
-      appSecret:         process.env.TWITTER_APP_SECRET,
-      accessToken:       process.env.TWITTER_ACCESS_TOKEN,
-      accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-    });
-    twitter = client.readWrite;
-    console.log('🐦 Twitter API initialized');
-  } else {
-    console.log('⚠️ Twitter keys missing - alerts disabled');
-  }
-} catch(e) {
-  console.log('⚠️ Twitter init failed:', e.message);
+if (process.env.TWITTER_APP_KEY && process.env.TWITTER_APP_SECRET &&
+    process.env.TWITTER_ACCESS_TOKEN && process.env.TWITTER_ACCESS_TOKEN_SECRET) {
+  twitter = new TwitterApi({
+    appKey: process.env.TWITTER_APP_KEY,
+    appSecret: process.env.TWITTER_APP_SECRET,
+    accessToken: process.env.TWITTER_ACCESS_TOKEN,
+    accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+  });
+  console.log('🐦 Twitter client ready');
+} else {
+  console.log('⚠️ Twitter keys missing');
 }
 
 // ============================================================
@@ -163,8 +158,7 @@ rugcop.xyz | t.me/RugCopBot
 #${rug.chain === 'SOL' ? 'Solana' : 'Ethereum'} #RugPull #CryptoScam`;
 
   try {
-    const rwClient = twitter;
-    await rwClient.v2.tweet(text);
+    await twitter.v2.tweet(text);
     tweetedCAs.add(rug.ca);
     saveTweetedCA(rug.ca);
     console.log(`🐦 Tweeted scam alert: ${rug.symbol}`);
