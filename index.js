@@ -6,6 +6,12 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { TwitterApi } = require('twitter-api-v2');
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+});
 
 // ============================================================
 // INIT
@@ -36,7 +42,7 @@ if (process.env.TWITTER_APP_KEY && process.env.TWITTER_APP_SECRET &&
 }
 
 // ============================================================
-// RECENT RUGS STORAGE (JSON 파일)
+// RECENT RUGS STORAGE (PostgreSQL)
 // ============================================================
 const RUGS_FILE = path.join(__dirname, 'recent_rugs.json');
 
@@ -49,15 +55,27 @@ function loadRugs() {
   return [];
 }
 
-function saveRug(rug) {
-  const rugs = loadRugs();
-  // 중복 방지
-  if (rugs.find(r => r.ca === rug.ca)) return;
-  // 최신 50개만 유지
-  rugs.unshift(rug);
-  if (rugs.length > 50) rugs.splice(50);
-  fs.writeFileSync(RUGS_FILE, JSON.stringify(rugs, null, 2));
-  console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
+async function saveRug(rug) {
+  if (!process.env.DATABASE_URL) {
+    const rugs = loadRugs();
+    if (rugs.find(r => r.ca === rug.ca)) return;
+    rugs.unshift(rug);
+    if (rugs.length > 50) rugs.splice(50);
+    fs.writeFileSync(RUGS_FILE, JSON.stringify(rugs, null, 2));
+    console.log(`💾 Rug saved (file): ${rug.name} (${rug.ca.slice(0,8)}...)`);
+    return;
+  }
+  try {
+    await pool.query(
+      `INSERT INTO tokens (ca, name, symbol, chain, risk, flags, volume24h, market_cap, logo, type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (ca) DO NOTHING`,
+      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean']
+    );
+    console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
+  } catch(e) {
+    console.error('saveRug error:', e.message);
+  }
 }
 
 // 이미 트윗한 CA (재시작 후에도 유지)
@@ -320,12 +338,12 @@ async function processNewToken(ca, name, symbol) {
     rug.symbol = metaFromHelius.symbol;
   }
 
-  saveRug(rug);
+  await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
 
 // ============================================================
-// DEXSCREENER + PUMP.FUN 트렌딩/신규 토큰 자동 스캔 (15분마다)
+// DEXSCREENER 트렌딩 토큰 자동 스캔 (15분마다)
 // ============================================================
 
 /** 한 개 솔라나 토큰 스캔 (GoPlus + DexScreener, 저장/알림). tokenMeta: { description?, symbol?, name? } */
@@ -462,9 +480,24 @@ app.post('/webhook/helius', async (req, res) => {
 // ============================================================
 // API — 웹사이트에서 Recent Rugs 가져가기
 // ============================================================
-app.get('/api/recent-rugs', (req, res) => {
+app.get('/api/recent-rugs', async (req, res) => {
+  if (process.env.DATABASE_URL) {
+    try {
+      const result = await pool.query('SELECT * FROM tokens ORDER BY created_at DESC LIMIT 50');
+      const rows = result.rows.map(r => ({
+        ...r,
+        marketCap: r.market_cap,
+        time: r.created_at ? new Date(r.created_at).getTime() : null,
+        timeAgo: getTimeAgo(r.created_at ? new Date(r.created_at).getTime() : Date.now()),
+        riskLabel: getRiskLabel(r.risk ?? 0),
+      }));
+      res.json(rows);
+      return;
+    } catch(e) {
+      console.error('recent-rugs error:', e.message);
+    }
+  }
   const rugs = loadRugs();
-  // 시간 포맷 추가
   const formatted = rugs.map(r => ({
     ...r,
     timeAgo: getTimeAgo(r.time),
@@ -473,7 +506,16 @@ app.get('/api/recent-rugs', (req, res) => {
   res.json(formatted);
 });
 
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
+  if (process.env.DATABASE_URL) {
+    try {
+      const stats = await pool.query(`SELECT COUNT(*)::int as total, COUNT(CASE WHEN type='danger' THEN 1 END)::int as danger, COUNT(CASE WHEN type='clean' THEN 1 END)::int as clean, COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END)::int as "last24h" FROM tokens`);
+      res.json(stats.rows[0]);
+      return;
+    } catch(e) {
+      console.error('stats error:', e.message);
+    }
+  }
   const rugs = loadRugs();
   res.json({
     total: rugs.length,
@@ -503,7 +545,30 @@ function getRiskLabel(risk) {
 // EXPRESS SERVER START
 // ============================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  if (process.env.DATABASE_URL) {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tokens (
+          id SERIAL PRIMARY KEY,
+          ca TEXT UNIQUE,
+          name TEXT,
+          symbol TEXT,
+          chain TEXT,
+          risk INTEGER,
+          flags TEXT,
+          volume24h NUMERIC,
+          market_cap NUMERIC,
+          logo TEXT,
+          type TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Tokens table ready');
+    } catch(e) {
+      console.error('DB table create error:', e.message);
+    }
+  }
   console.log(`🌐 API server running on port ${PORT}`);
   console.log(`📡 Helius webhook ready at /webhook/helius`);
   console.log(`🔗 Recent rugs API at /api/recent-rugs`);
