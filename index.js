@@ -234,6 +234,9 @@ CA: ${ca}
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
 
+Scan before you ape 👇\
+rugcop.xyz
+
 #Solana #Memecoin #GemAlert`;
 
     try {
