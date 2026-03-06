@@ -654,8 +654,8 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
   );
 
   try {
-    const isEVM    = contractAddress.startsWith('0x');
-    const isSolana = !isEVM && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(contractAddress);
+    const isEVM = /^0x[a-fA-F0-9]{40}$/.test(contractAddress);
+    const chain = isEVM ? 'ETH' : 'SOL';
     let resultMsg  = null;
 
     if (isEVM) {
@@ -676,7 +676,7 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       }
-    } else if (isSolana) {
+    } else {
       const res  = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${contractAddress}`);
       const data = await res.json();
       const key  = Object.keys(data.result || {})[0];
