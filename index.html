@@ -304,6 +304,8 @@ function getImgBg(risk){
 function buildCard(t){
   const isHigh=t.risk>=75, isSafe=t.risk<=30;
   const logo=t.logo||null;
+  const marketCap=t.marketCap||t.market_cap||0;
+  const volume24h=t.volume24h||0;
   const imgContent=logo?`<img src="${logo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1" onerror="this.style.display='none'">`:'';
   const initials=(t.symbol&&t.symbol!=='???'?t.symbol.replace('$','').slice(0,3):t.name?t.name.slice(0,2):'??').toUpperCase();
   const fallback=logo?'':`<div style="font-family:'Orbitron',sans-serif;font-size:22px;color:rgba(255,255,255,0.15);position:relative;z-index:1;font-weight:700;letter-spacing:0.05em">${initials}</div>`;
@@ -311,7 +313,8 @@ function buildCard(t){
   const cardCls=isSafe?' safe-card':'';
   const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
 
-  const flags=(t.flags||[]).filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
+  const flags=typeof t.flags==='string'?JSON.parse(t.flags||'[]'):(t.flags||[]);
+  const flagsStr=flags.filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
     const g=f.includes('LOCK')||f==='LP_LOCKED';
     const w=f.includes('FEE')||f.includes('HOLD');
     return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
@@ -342,7 +345,7 @@ function buildCard(t){
       <div class="tc-name">${name}</div>
       <div class="tc-sym">${sym}</div>
     </div>
-    <div class="tc-flags">${flags||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
+    <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
     <div class="tc-footer">
       <a href="https://t.me/RugCopBot" target="_blank" class="tc-btn tc-scan-btn">🔍 SCAN</a>
       ${buyBtn}
