@@ -402,9 +402,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
 async function scanTrendingTokens() {
   try {
-    console.log('🔥 Scanning trending tokens (DexScreener + pump.fun)...');
-
-    // 1) DexScreener 트렌딩
+    console.log('🔥 Scanning trending tokens...');
     const res = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
     const tokens = await res.json();
     const solTokens = (Array.isArray(tokens) ? tokens : [])
@@ -416,23 +414,6 @@ async function scanTrendingTokens() {
         description: token.description,
         symbol: token.symbol,
         name: token.name,
-      });
-      await new Promise(r => setTimeout(r, 2000));
-    }
-
-    // 2) pump.fun 신규 토큰
-    const pumpRes = await fetch('https://frontend-api.pump.fun/coins?offset=0&limit=20&sort=last_trade_timestamp&order=DESC&includeNsfw=false');
-    const pumpData = await pumpRes.json();
-    const pumpList = Array.isArray(pumpData) ? pumpData : (pumpData?.data ?? pumpData?.coins ?? []);
-    const pumpCoins = pumpList.slice(0, 20);
-
-    for (const coin of pumpCoins) {
-      const ca = coin.mint ?? coin.address ?? coin.token_address;
-      if (!ca) continue;
-      await scanOneSolanaToken(ca, {
-        name: coin.name ?? coin.title,
-        symbol: coin.symbol,
-        description: coin.description,
       });
       await new Promise(r => setTimeout(r, 2000));
     }
