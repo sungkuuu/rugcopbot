@@ -325,11 +325,86 @@ async function processNewToken(ca, name, symbol) {
 }
 
 // ============================================================
-// DEXSCREENER 트렌딩 토큰 자동 스캔 (15분마다)
+// DEXSCREENER + PUMP.FUN 트렌딩/신규 토큰 자동 스캔 (15분마다)
 // ============================================================
+
+/** 한 개 솔라나 토큰 스캔 (GoPlus + DexScreener, 저장/알림). tokenMeta: { description?, symbol?, name? } */
+async function scanOneSolanaToken(ca, tokenMeta = {}) {
+  try {
+    const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+    const dexData = await dexRes.json();
+    const pair = dexData.pairs?.[0];
+    const dexName = pair?.baseToken?.name;
+    const dexSymbol = pair?.baseToken?.symbol;
+
+    const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`);
+    const gpData = await gpRes.json();
+    const key = Object.keys(gpData.result || {})[0];
+    const sd = gpData.result?.[key];
+    if (!sd) return;
+
+    let risk = 0;
+    let flags = [];
+
+    if (sd.freezable?.status === '1')               { risk += 35; flags.push('FREEZABLE'); }
+    if (sd.balance_mutable_authority?.status === '1'){ risk += 30; flags.push('MUTABLE'); }
+    if (sd.closable?.status === '1')                 { risk += 20; flags.push('CLOSABLE'); }
+    if (sd.transfer_fee_enable?.status === '1')      { risk += 15; flags.push('TRANSFER_FEE'); }
+
+    const topHolders = sd.top_holders || [];
+    const top10pct = topHolders.slice(0,10).reduce((s,h) => s + parseFloat(h.percent||0), 0);
+    if (top10pct > 80) { risk += 25; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
+    else if (top10pct > 50) { risk += 10; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
+
+    if (sd.lp_holders) {
+      const lockedLP = sd.lp_holders.filter(h => h.is_locked === 1);
+      if (lockedLP.length === 0) { risk += 15; flags.push('LP_UNLOCKED'); }
+      else flags.push('LP_LOCKED');
+    }
+    if (risk < 10) risk = 10;
+
+    const meta = sd.metadata || {};
+    let name = meta.name || tokenMeta.name || tokenMeta.description;
+    if (!name || name === 'Unknown') name = dexName || 'Unknown';
+    let symbol = meta.symbol || tokenMeta.symbol;
+    if (!symbol || symbol === '???') symbol = dexSymbol || '???';
+
+    console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
+
+    const volume24h = pair?.volume?.h24 || 0;
+    const marketCap = pair?.marketCap || 0;
+    const priceUsd = pair?.priceUsd || 0;
+    const logo = pair?.info?.imageUrl || null;
+
+    const rugPayload = {
+      ca,
+      name,
+      symbol,
+      chain: 'SOL',
+      risk: Math.min(risk, 99),
+      flags,
+      volume24h,
+      marketCap,
+      priceUsd,
+      logo,
+    };
+
+    if (risk >= 70 && volume24h >= 5000) {
+      await saveRug({ ...rugPayload, type: 'danger' });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+    }
+    if (risk <= 30 && volume24h >= 10000) {
+      await saveRug({ ...rugPayload, type: 'clean' });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+    }
+  } catch(e) { /* skip */ }
+}
+
 async function scanTrendingTokens() {
   try {
-    console.log('🔥 Scanning trending tokens...');
+    console.log('🔥 Scanning trending tokens (DexScreener + pump.fun)...');
+
+    // 1) DexScreener 트렌딩
     const res = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
     const tokens = await res.json();
     const solTokens = (Array.isArray(tokens) ? tokens : [])
@@ -337,81 +412,28 @@ async function scanTrendingTokens() {
       .slice(0, 20);
 
     for (const token of solTokens) {
-      const ca = token.tokenAddress;
-      try {
-        // DexScreener에서 name/symbol 먼저 가져오기
-        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
-        const dexData = await dexRes.json();
-        const pair = dexData.pairs?.[0];
-        const dexName = pair?.baseToken?.name;
-        const dexSymbol = pair?.baseToken?.symbol;
+      await scanOneSolanaToken(token.tokenAddress, {
+        description: token.description,
+        symbol: token.symbol,
+        name: token.name,
+      });
+      await new Promise(r => setTimeout(r, 2000));
+    }
 
-        const gpRes = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`);
-        const gpData = await gpRes.json();
-        const key = Object.keys(gpData.result || {})[0];
-        const sd = gpData.result?.[key];
-        if (!sd) continue;
+    // 2) pump.fun 신규 토큰
+    const pumpRes = await fetch('https://frontend-api.pump.fun/coins?offset=0&limit=20&sort=last_trade_timestamp&order=DESC&includeNsfw=false');
+    const pumpData = await pumpRes.json();
+    const pumpList = Array.isArray(pumpData) ? pumpData : (pumpData?.data ?? pumpData?.coins ?? []);
+    const pumpCoins = pumpList.slice(0, 20);
 
-        let risk = 0;
-        let flags = [];
-
-        if (sd.freezable?.status === '1')               { risk += 35; flags.push('FREEZABLE'); }
-        if (sd.balance_mutable_authority?.status === '1'){ risk += 30; flags.push('MUTABLE'); }
-        if (sd.closable?.status === '1')                 { risk += 20; flags.push('CLOSABLE'); }
-        if (sd.transfer_fee_enable?.status === '1')      { risk += 15; flags.push('TRANSFER_FEE'); }
-
-        // 탑 홀더 집중도 체크
-        const topHolders = sd.top_holders || [];
-        const top10pct = topHolders.slice(0,10).reduce((s,h) => s + parseFloat(h.percent||0), 0);
-        if (top10pct > 80) { risk += 25; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
-        else if (top10pct > 50) { risk += 10; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
-
-        // LP 잠금 여부
-        if (sd.lp_holders) {
-          const lockedLP = sd.lp_holders.filter(h => h.is_locked === 1);
-          if (lockedLP.length === 0) { risk += 15; flags.push('LP_UNLOCKED'); }
-          else flags.push('LP_LOCKED');
-        }
-        if (risk < 10) risk = 10;
-
-        const meta = sd.metadata || {};
-        // GoPlus에 name/symbol 없거나 Unknown이면 DexScreener 값으로 대체
-        let name = meta.name || token.description;
-        if (!name || name === 'Unknown') name = dexName || 'Unknown';
-        let symbol = meta.symbol;
-        if (!symbol || symbol === '???') symbol = dexSymbol || '???';
-
-        console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
-
-        const volume24h = pair?.volume?.h24 || 0;
-        const marketCap = pair?.marketCap || 0;
-        const priceUsd = pair?.priceUsd || 0;
-        const logo = pair?.info?.imageUrl || null;
-
-        const rugPayload = {
-          ca,
-          name,
-          symbol,
-          chain: 'SOL',
-          risk: Math.min(risk, 99),
-          flags,
-          volume24h,
-          marketCap,
-          priceUsd,
-          logo,
-        };
-
-        // 위험 토큰 (러그 후보)
-        if (risk >= 70 && volume24h >= 5000) {
-          await saveRug({ ...rugPayload, type: 'danger' });
-          await tweetAlert({ ...rugPayload, volume24h, marketCap });
-        }
-        // 안전 토큰 (젬 후보) — 저장 + 텔레그램 어드민 알림
-        if (risk <= 30 && volume24h >= 10000) {
-          await saveRug({ ...rugPayload, type: 'clean' });
-          await tweetAlert({ ...rugPayload, volume24h, marketCap });
-        }
-      } catch(e) { continue; }
+    for (const coin of pumpCoins) {
+      const ca = coin.mint ?? coin.address ?? coin.token_address;
+      if (!ca) continue;
+      await scanOneSolanaToken(ca, {
+        name: coin.name ?? coin.title,
+        symbol: coin.symbol,
+        description: coin.description,
+      });
       await new Promise(r => setTimeout(r, 2000));
     }
   } catch(e) { console.error('Trending scan error:', e.message); }
