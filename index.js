@@ -435,6 +435,18 @@ async function scanTrendingTokens() {
       });
       await new Promise(r => setTimeout(r, 2000));
     }
+
+    // Solana 신규 토큰 추가 스캔 (같은 API, 상위 15개)
+    const newRes = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
+    const newData = await newRes.json();
+    const newCAs = Array.isArray(newData)
+      ? newData.filter(t => t.chainId === 'solana').slice(0, 15).map(t => t.tokenAddress).filter(Boolean)
+      : [];
+
+    for (const ca of newCAs) {
+      await scanOneSolanaToken(ca, {});
+      await new Promise(r => setTimeout(r, 2000));
+    }
   } catch(e) { console.error('Trending scan error:', e.message); }
 }
 
