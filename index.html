@@ -328,7 +328,7 @@ function buildCard(t){
   const imgBg=getImgBg(t.risk);
 
   const buyBtn=isSafe
-    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🎯 SNIPE</a>`
+    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a>`
     :`<span class="tc-btn tc-skip-btn">⛔ SKIP</span>`;
 
   return`<div class="token-card${cardCls}">
@@ -446,7 +446,7 @@ async function doScan(ca){
     const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
     const isSafeResult=risk<=30;
     const buyBtn=isSafeResult
-      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🎯 SNIPE ON BANANA GUN</a>`
+      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 SNIPE ON BANANA GUN</a>`
       :`<a class="result-buy disabled">⚠️ TOO RISKY TO SNIPE</a>`;
     box.innerHTML=`<div class="result-card">
       <div class="result-header"><div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div><span class="risk-pill ${rc}">${risk}%</span></div>
