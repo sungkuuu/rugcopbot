@@ -476,8 +476,11 @@ app.get('/api/recent-rugs', (req, res) => {
 app.get('/api/stats', (req, res) => {
   const rugs = loadRugs();
   res.json({
+    total: rugs.length,
     totalRugs: rugs.length,
-    last24h:   rugs.filter(r => Date.now() - r.time < 86400000).length,
+    danger: rugs.filter(r => r.type === 'danger').length,
+    clean: rugs.filter(r => r.type === 'clean').length,
+    last24h: rugs.filter(r => Date.now() - r.time < 86400000).length,
   });
 });
 
