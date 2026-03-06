@@ -347,7 +347,7 @@ function buildCard(t){
     </div>
     <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
     <div class="tc-footer">
-      <a href="https://t.me/RugCopBot" target="_blank" class="tc-btn tc-scan-btn">🔍 SCAN</a>
+      <a onclick="document.getElementById('caInput').value='${ca}';window.scrollTo({top:0,behavior:'smooth'});setTimeout(runScan,600);" class="tc-btn tc-scan-btn" style="cursor:pointer">🔍 SCAN</a>
       ${buyBtn}
     </div>
     ${tago?`<div class="tc-time">${tago}</div>`:''}
@@ -461,7 +461,7 @@ function runScan(){const ca=document.getElementById('caInput').value.trim();if(c
 document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
 
 loadFeed();loadStats();
-setInterval(loadFeed,30000);setInterval(loadStats,60000);
+setInterval(loadFeed,120000);setInterval(loadStats,60000);
 </script>
 </body>
 </html>
