@@ -361,24 +361,18 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     const sd = gpData.result?.[key];
     if (!sd) return;
 
-    let risk = 0;
-    let flags = [];
+    console.log('GoPlus raw:', JSON.stringify(sd).slice(0, 300));
 
-    if (sd.freezable?.status === '1')               { risk += 35; flags.push('FREEZABLE'); }
-    if (sd.balance_mutable_authority?.status === '1'){ risk += 30; flags.push('MUTABLE'); }
-    if (sd.closable?.status === '1')                 { risk += 20; flags.push('CLOSABLE'); }
-    if (sd.transfer_fee_enable?.status === '1')      { risk += 15; flags.push('TRANSFER_FEE'); }
+    const mintAuth = sd.metadata?.['mint_authority'] || sd.mintAuthority || sd.mint_authority;
+    const freezeAuth = sd.metadata?.['freeze_authority'] || sd.freezeAuthority || sd.freeze_authority;
+    const mutable = sd.mutable === '1' || sd.is_mutable === '1';
 
-    const topHolders = sd.top_holders || [];
-    const top10pct = topHolders.slice(0,10).reduce((s,h) => s + parseFloat(h.percent||0), 0);
-    if (top10pct > 80) { risk += 25; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
-    else if (top10pct > 50) { risk += 10; flags.push(`TOP10_HOLD_${Math.round(top10pct)}%`); }
+    const flags = [];
+    if (mintAuth) flags.push('MINT_AUTHORITY');
+    if (freezeAuth) flags.push('FREEZE_AUTHORITY');
+    if (mutable) flags.push('MUTABLE_METADATA');
 
-    if (sd.lp_holders) {
-      const lockedLP = sd.lp_holders.filter(h => h.is_locked === 1);
-      if (lockedLP.length === 0) { risk += 15; flags.push('LP_UNLOCKED'); }
-      else flags.push('LP_LOCKED');
-    }
+    let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
     if (risk < 10) risk = 10;
 
     const meta = sd.metadata || {};
