@@ -145,48 +145,88 @@ const ADMIN_COOLDOWN = 15 * 60 * 1000; // 15분
 async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
 
-  // risk <= 30 인 것만 알림
-  if (rug.risk > 30) return;
-
   if (!process.env.ADMIN_CHAT_ID) {
     console.log('⚠️ ADMIN_CHAT_ID not set, skipping admin alert');
     return;
   }
 
-  // 15분에 한 번만 알림
-  if (Date.now() - lastAdminAlert < ADMIN_COOLDOWN) return;
-
-  // 너무 평범한 토큰 제외
   const volume24h = rug.volume24h ?? 0;
   const marketCap = rug.marketCap ?? 0;
-  if (!rug.symbol || rug.symbol === '???') return;
-  if (rug.name === 'Unknown') return;
-  if (volume24h < 10000) return;
-  if (marketCap < 50000) return;
-
   const { name, symbol, ca, chain, risk, flags } = rug;
   const chainStr = chain || 'SOL';
 
-  const alertMsg = `✅ $${symbol} looks clean
+  if (!symbol || symbol === '???') return;
+  if (name === 'Unknown') return;
+
+  const isMutable =
+    (flags || []).includes('MUTABLE_METADATA') ||
+    (flags || []).includes('MUTABLE');
+  const isFreezable =
+    (flags || []).includes('FREEZE_AUTHORITY') ||
+    (flags || []).includes('FREEZABLE');
+
+  // DANGER 알림 (risk >= 70, volume >= 5000)
+  if (risk >= 70 && volume24h >= 5000) {
+    const dangerMsg = `🚨 SCAM ALERT — $${symbol}
 
 ${name} | ${chainStr} | Risk: ${risk}%
 CA: ${ca}
 
-⚖️ Mutable: ${(flags||[]).some(f=>f==='MUTABLE_METADATA'||f==='MUTABLE') ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${(flags||[]).some(f=>f==='FREEZE_AUTHORITY'||f==='FREEZABLE') ? '🚨 YES' : '✅ NO'}
+⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
+
+💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
+
+——— TWEET DRAFT ———
+🚨 $${symbol} flagged by RugCop
+
+High risk token — do NOT ape
+CA: ${ca.slice(0,6)}...${ca.slice(-6)}
+Risk Score: ${risk}% 🚨
+
+Scan before you lose it all 👇
+rugcop.xyz
+
+#Solana #RugPull #CryptoScam
+———————————`;
+
+    try {
+      await bot.sendMessage(process.env.ADMIN_CHAT_ID, dangerMsg);
+      console.log('📩 Admin notified (danger):', symbol);
+      tweetedCAs.add(rug.ca);
+      saveTweetedCA(rug.ca);
+    } catch (e) {
+      console.error('Admin alert failed:', e.message);
+    }
+    return;
+  }
+
+  // CLEAN 알림 (15분 쿨다운 유지)
+  if (risk <= 30 && volume24h >= 10000) {
+    if (Date.now() - lastAdminAlert < ADMIN_COOLDOWN) return;
+    if (marketCap < 50000) return;
+
+    const alertMsg = `✅ $${symbol} looks clean
+
+${name} | ${chainStr} | Risk: ${risk}%
+CA: ${ca}
+
+⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
 
 #Solana #Memecoin #GemAlert`;
 
-  try {
-    lastAdminAlert = Date.now();
-    await bot.sendMessage(process.env.ADMIN_CHAT_ID, alertMsg);
-    console.log('📩 Admin notified:', symbol);
-    tweetedCAs.add(rug.ca);
-    saveTweetedCA(rug.ca);
-  } catch(e) {
-    console.error('Admin alert failed:', e.message);
+    try {
+      lastAdminAlert = Date.now();
+      await bot.sendMessage(process.env.ADMIN_CHAT_ID, alertMsg);
+      console.log('📩 Admin notified (clean):', symbol);
+      tweetedCAs.add(rug.ca);
+      saveTweetedCA(rug.ca);
+    } catch(e) {
+      console.error('Admin alert failed:', e.message);
+    }
   }
 }
 
@@ -364,6 +404,7 @@ async function scanTrendingTokens() {
         // 위험 토큰 (러그 후보)
         if (risk >= 70 && volume24h >= 5000) {
           await saveRug({ ...rugPayload, type: 'danger' });
+          await tweetAlert({ ...rugPayload, volume24h, marketCap });
         }
         // 안전 토큰 (젬 후보) — 저장 + 텔레그램 어드민 알림
         if (risk <= 30 && volume24h >= 10000) {
