@@ -751,7 +751,7 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
         chat_id: chatId, message_id: waitMsg.message_id, parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🍌 Snipe with Banana Gun', url: 'https://t.me/BananaGunSniper_bot?start=ref_rugcop' }]
+            [{ text: '🍌 Snipe with Banana Gun', url: 'https://t.me/BananaGun_bot?start=ref_rugcopbot' }]
           ]
         }
       });
