@@ -191,6 +191,7 @@ async function tweetAlert(rug) {
   const volume24h = rug.volume24h ?? 0;
   const marketCap = rug.marketCap ?? 0;
   const top10pct = rug.top10pct != null ? rug.top10pct : 0;
+  const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
   const { name, symbol, ca, chain, risk, flags } = rug;
   const chainStr = chain || 'SOL';
 
@@ -213,7 +214,7 @@ CA: ${ca}
 
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
 
-👥 Top 10 Holders: ${top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A'}
+👥 Top 10 Holders: ${top10str}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -254,7 +255,7 @@ CA: ${ca}
 
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
 
-👥 Top 10 Holders: ${top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A'}
+👥 Top 10 Holders: ${top10str}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -726,6 +727,8 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
       if (data.code === 1 && data.result && key) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
+        const top10pct = (sd?.top_holders || []).slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
+        const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
         const aiAudit = await getAIAudit('SOLANA_TOKEN', sd);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
@@ -734,7 +737,8 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
           `📍 <b>Address:</b> <code>${contractAddress}</code>\n\n` +
           `⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
-          `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n\n` +
+          `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
+          `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       } else {
