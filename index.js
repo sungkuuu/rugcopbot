@@ -16,7 +16,27 @@ const pool = new Pool({
 // ============================================================
 // INIT
 // ============================================================
-const bot = new TelegramBot(process.env.API_KEY, { polling: true });
+const bot = new TelegramBot(process.env.API_KEY, { polling: false });
+
+// 기존 webhook/polling 강제 초기화 후 시작
+setTimeout(async () => {
+  try {
+    await bot.deleteWebHook();
+    bot.startPolling({ restart: false });
+    console.log('✅ Telegram polling started');
+  } catch(e) {
+    console.error('Telegram start error:', e.message);
+  }
+}, 3000);
+
+bot.on('polling_error', (err) => {
+  if (err.message && err.message.includes('409')) {
+    console.log('⚠️ 409 conflict - ignoring, will resolve on next deploy');
+  } else {
+    console.error('Polling error:', err.message);
+  }
+});
+
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
