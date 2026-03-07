@@ -396,6 +396,20 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     if (mutable) flags.push('MUTABLE_METADATA');
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
+
+    const topHolders = sd.top_holders || [];
+    const top10pct = topHolders.slice(0, 10)
+      .reduce((s, h) => s + parseFloat(h.percent || 0), 0);
+
+    if (top10pct > 50) { risk += 40; flags.push(`TOP10_${Math.round(top10pct)}%`); }
+    if (top10pct > 30) { risk += 20; flags.push(`TOP10_${Math.round(top10pct)}%`); }
+
+    const devHolder = topHolders[0];
+    if (devHolder && parseFloat(devHolder.percent) > 20) {
+      risk += 30;
+      flags.push('DEV_WHALE');
+    }
+
     if (risk < 10) risk = 10;
 
     const meta = sd.metadata || {};
