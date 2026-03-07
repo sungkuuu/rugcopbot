@@ -190,6 +190,7 @@ async function tweetAlert(rug) {
 
   const volume24h = rug.volume24h ?? 0;
   const marketCap = rug.marketCap ?? 0;
+  const top10pct = rug.top10pct != null ? rug.top10pct : 0;
   const { name, symbol, ca, chain, risk, flags } = rug;
   const chainStr = chain || 'SOL';
 
@@ -211,6 +212,8 @@ ${name} | ${chainStr} | Risk: ${risk}%
 CA: ${ca}
 
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
+
+👥 Top 10 Holders: ${top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A'}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -250,6 +253,8 @@ ${name} | ${chainStr} | Risk: ${risk}%
 CA: ${ca}
 
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
+
+👥 Top 10 Holders: ${top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A'}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -436,6 +441,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       marketCap,
       priceUsd,
       logo,
+      top10pct,
     };
 
     if (risk >= 70 && volume24h >= 5000) {
