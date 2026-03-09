@@ -67,14 +67,14 @@ h1 .r{color:var(--red2)}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
-.result-jupiter{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:#C7F284;border:1px solid #C7F284;color:#fff;padding:12px 14px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));cursor:pointer;width:100%}
-.result-jupiter:hover{filter:brightness(1.12);color:#fff}
-.result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);clip-path:none;pointer-events:none;cursor:default;filter:none}
-.result-buy{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:#00c44f;border:1px solid #00c44f;color:#fff;padding:12px 14px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
-.result-buy:hover{filter:brightness(1.12);color:#fff}
-.result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3);border-color:var(--border);filter:none}
+.result-jupiter{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:8px;overflow:visible;color:#fff;padding:0 20px;height:52px;font-size:1.1rem;font-family:'Orbitron',sans-serif;text-decoration:none;transition:background .15s;cursor:pointer;width:100%;box-sizing:border-box}
+.result-jupiter:hover{background:rgba(255,255,255,.06);color:#fff}
+.result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
+.result-buy{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:8px;overflow:visible;color:#fff;padding:0 20px;height:52px;font-size:1.1rem;font-family:'Orbitron',sans-serif;text-decoration:none;transition:background .15s;box-sizing:border-box}
+.result-buy:hover{background:rgba(255,255,255,.06);color:#fff}
+.result-buy.disabled{background:var(--muted);pointer-events:none;color:rgba(255,255,255,.3);border-color:var(--border)}
 .result-actions .btn-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-.result-actions .btn-icon img{width:1.4em;height:1.4em;object-fit:contain;vertical-align:middle}
+.result-actions .btn-icon img{width:28px;height:28px;object-fit:contain;vertical-align:middle}
 .result-actions .btn-emoji{font-size:1.6em;line-height:1}
 .result-actions .btn-icon .btn-emoji{display:none}
 
@@ -460,11 +460,11 @@ async function doScan(ca){
     const isSol=chain==='SOL';
     const SOL_MINT='So11111111111111111111111111111111111111112';
     const btnBanana=isSol
-      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://bananagun.io/apple-touch-icon.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
-      :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://bananagun.io/apple-touch-icon.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
+      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
+      :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
     const btnJupiter=isSol
-      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/logo.svg" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</button>`
-      :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/logo.svg" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</span>`;
+      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</button>`
+      :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</span>`;
     let logoUrl=null;
     try{
       const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
