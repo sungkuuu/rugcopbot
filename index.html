@@ -6,6 +6,7 @@
 <title>RugCop — Scan Before You Ape</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://terminal.jup.ag/main-v4.js"></script>
 <style>
 :root{--bg:#080808;--bg2:#0f0f0f;--bg3:#141414;--card:#0c0c0c;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--red:#b83228;--red2:#d94535;--green:#1a9e50;--yellow:#c49a14;--text:#a8a8a8;--muted:#3a3a3a;--bright:#e2e2e2}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
@@ -66,7 +67,7 @@ h1 .r{color:var(--red2)}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
-.result-jupiter{flex:1;display:block;text-align:center;background:#19CEBF;border:1px solid rgba(25,206,191,.5);color:#fff;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.result-jupiter{flex:1;display:block;text-align:center;background:#19CEBF;border:1px solid rgba(25,206,191,.5);color:#fff;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));cursor:pointer;width:100%}
 .result-jupiter:hover{background:#17b8ab;color:#fff}
 .result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);clip-path:none;pointer-events:none;cursor:default}
 .result-buy{flex:1;display:block;text-align:center;background:var(--green);color:white;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:opacity .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
@@ -454,12 +455,11 @@ async function doScan(ca){
     const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
     const isSol=chain==='SOL';
     const SOL_MINT='So11111111111111111111111111111111111111112';
-    const jupiterHref='https://jupiter.ag/swap?inputMint='+SOL_MINT+'&outputMint='+encodeURIComponent(ca_addr)+'&referralAccount=DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV&feeBps=100';
     const btnBanana=isSol
       ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 Snipe on Banana Gun</a>`
       :`<span class="result-buy disabled">🍌 Snipe on Banana Gun</span>`;
     const btnJupiter=isSol
-      ?`<a href="${jupiterHref}" target="_blank" class="result-jupiter">⚡️ Buy on Jupiter</a>`
+      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}">⚡️ Buy on Jupiter</button>`
       :`<span class="result-jupiter disabled">⚡️ Buy on Jupiter</span>`;
     let logoUrl=null;
     try{
@@ -479,6 +479,24 @@ async function doScan(ca){
 
 function runScan(){const ca=document.getElementById('caInput').value.trim();if(ca)doScan(ca);}
 document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
+
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.result-jupiter:not(.disabled)');
+  if(!btn||!btn.dataset.outputMint)return;
+  const outputMint=btn.dataset.outputMint;
+  if(typeof window.Jupiter==='undefined')return;
+  const SOL_MINT='So11111111111111111111111111111111111111112';
+  window.Jupiter.init({
+    displayMode:'modal',
+    initialInputMint:SOL_MINT,
+    initialOutputMint:outputMint,
+    platformFeeBps:100,
+    feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+    referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+    feeBps:100,
+    containerStyles:{ zIndex: 1000 }
+  });
+});
 
 loadFeed();loadStats();
 setInterval(loadFeed,120000);setInterval(loadStats,60000);
