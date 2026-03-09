@@ -36,12 +36,12 @@ h1 .r{color:var(--red2)}
 
 .scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:0}
 .chain-select{background:var(--bg2);border:1px solid var(--border2);border-right:none;padding:13px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center}
-.chain-select:focus{border-color:var(--red)}
+.chain-select:focus{border-color:var(--green)}
 .scan-input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
 .scan-input::placeholder{color:var(--muted)}
-.scan-input:focus{border-color:var(--red)}
-.scan-btn{background:var(--red);color:white;border:none;padding:13px 20px;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;transition:background .15s;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
-.scan-btn:hover{background:var(--red2)}
+.scan-input:focus{border-color:var(--green)}
+.scan-btn{background:var(--green);color:white;border:none;padding:13px 20px;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;transition:background .15s;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.scan-btn:hover{background:#158c45;color:white}
 .scan-result{max-width:600px;margin:0 auto 0}
 .result-box{display:none}.result-box.show{display:block;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -63,8 +63,8 @@ h1 .r{color:var(--red2)}
 .rflag-key{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:3px}
 .rflag-val{font-size:1.15rem;font-weight:500}
 .val-danger{color:#d94535}.val-safe{color:#1a9e50}.val-warn{color:#c49a14}
-.result-verdict{font-size:9px;color:var(--text);line-height:1.9;background:rgba(184,50,40,.04);border:1px solid rgba(184,50,40,.1);padding:12px;margin-bottom:12px}
-.result-verdict strong{color:var(--red2)}
+.result-verdict{font-size:9px;color:var(--text);line-height:1.9;background:rgba(26,158,80,.04);border:1px solid rgba(26,158,80,.1);padding:12px;margin-bottom:0}
+.result-verdict strong{color:var(--green)}
 .result-actions{display:flex;gap:6px}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
@@ -97,7 +97,7 @@ h1 .r{color:var(--red2)}
 .filter-right{font-size:8px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
 
 /* NFT GRID */
-.token-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:20px 40px;min-height:360px}
+.token-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:20px 40px;min-height:960px}
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
 
 /* TOKEN CARD — NFT style */
@@ -428,7 +428,7 @@ function renderGrid(){
   else if(currentFilter==='eth')data=allTokens.filter(t=>t.chain==='ETH');
   document.getElementById('filterCount').textContent=data.length+' TOKENS';
   if(!data.length){grid.innerHTML='<div class="empty-state">NO TOKENS IN THIS FILTER YET — MONITORING LIVE...</div>';return;}
-  grid.innerHTML=data.slice(0,24).map(buildCard).join('');
+  grid.innerHTML=data.slice(0,64).map(buildCard).join('');
 }
 
 async function loadFeed(){
@@ -501,13 +501,6 @@ async function getScanResultHtml(ca){
     flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
-  const isSolChain=chain==='SOL';
-  const btnBanana=isSolChain
-    ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
-    :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
-  const btnJupiter=isSolChain
-    ?`<button type="button" class="result-jupiter" style="background: var(--red); border-color: var(--red2);" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</button>`
-    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
     const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
@@ -519,7 +512,6 @@ async function getScanResultHtml(ca){
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
-    <div class="result-actions">${btnBanana}${btnJupiter}</div>
   </div>`;
 }
 
