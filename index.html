@@ -34,7 +34,9 @@ h1 .r{color:var(--red2)}
 .hero-sub{font-size:10px;color:var(--muted);max-width:480px;margin:0 auto 32px;line-height:2}
 .hero-sub strong{color:var(--text)}
 
-.scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:6px}
+.scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:0}
+.chain-select{background:var(--bg2);border:1px solid var(--border2);border-right:none;padding:13px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center}
+.chain-select:focus{border-color:var(--red)}
 .scan-input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
 .scan-input::placeholder{color:var(--muted)}
 .scan-input:focus{border-color:var(--red)}
@@ -101,7 +103,7 @@ h1 .r{color:var(--red2)}
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
 
 /* TOKEN CARD — NFT style */
-.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;position:relative;display:flex;flex-direction:column}
+.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;position:relative;display:flex;flex-direction:column;cursor:pointer}
 .token-card:hover{border-color:rgba(184,50,40,.35);transform:translateY(-3px)}
 .token-card.safe-card:hover{border-color:rgba(26,158,80,.35)}
 
@@ -186,6 +188,12 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 #scanModalContent{padding-top:44px}
 .scan-modal-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:var(--bg3);color:var(--text);border-radius:0;cursor:pointer;font-size:18px;line-height:1;z-index:10;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .scan-modal-close:hover{background:var(--border2);color:var(--bright)}
+.card-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;align-items:center;justify-content:center;padding:20px}
+.card-modal-overlay.show{display:flex}
+.card-modal{background:var(--bg2);border:1px solid var(--border2);max-width:600px;width:100%;max-height:90vh;overflow-y:auto;position:relative;padding:20px}
+.card-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;font-family:'IBM Plex Mono',monospace;line-height:1}
+.card-modal-close:hover{color:var(--bright)}
+.card-modal-loading{text-align:center;padding:32px;font-size:9px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px}
 </style>
 </head>
 <body>
@@ -207,6 +215,12 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
   <h1>SCAN<br>BEFORE<br>YOU <span class="r">APE.</span></h1>
   <p class="hero-sub">Paste any <strong>ETH or SOL</strong> contract. Instant risk score, dev wallet history — snipe or skip in seconds.</p>
   <div class="scan-bar">
+    <select class="chain-select" id="chainSelect">
+      <option value="auto">AUTO</option>
+      <option value="eth">ETH</option>
+      <option value="base">BASE</option>
+      <option value="sol">SOL</option>
+    </select>
     <input class="scan-input" id="caInput" placeholder="0x... or Solana CA" autocomplete="off"/>
     <button class="scan-btn" onclick="runScan()">SCAN →</button>
   </div>
@@ -346,7 +360,7 @@ function buildCard(t){
   const sym=t.symbol&&t.symbol!=='???'?'$'+t.symbol:'';
   const ca=t.ca||'';
   const chain=t.chain||'SOL';
-  const caEsc=ca.replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  const tago=t.timestamp?timeAgo(t.timestamp):'';
   const caOnclick=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const imgBg=getImgBg(t.risk);
   const flags=typeof t.flags==='string'?JSON.parse(t.flags||'[]'):(t.flags||[]);
@@ -355,14 +369,8 @@ function buildCard(t){
     const w=f.includes('FEE')||f.includes('HOLD');
     return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
   }).join('');
-  const buyBtn=isSafe
-    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a>`
-    :`<span class="tc-btn tc-skip-btn">⛔ SKIP</span>`;
-  const jupiterBtn=chain==='SOL'
-    ?`<button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" data-output-mint="${caEsc}"><img src="https://jup.ag/favicon.ico" alt="" class="tc-jupiter-logo" onerror="this.style.display=\'none\'"> Buy on Jupiter</button>`
-    :'';
-  return`<div class="token-card${cardCls}">
-  <div class="tc-img" style="background:var(--bg2);cursor:pointer" onclick="openCardModal('${caOnclick}')">
+  return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
+  <div class="tc-img" style="background:var(--bg2)">
     <div style="position:absolute;inset:0;${imgBg}"></div>
     ${imgContent}${fallback}
     <div class="tc-img-overlay"></div>
@@ -371,15 +379,12 @@ function buildCard(t){
     <span class="tc-verdict">${verdictText}</span>
   </div>
   <div class="tc-body">
-    <div class="tc-body-top" style="cursor:pointer" onclick="openCardModal('${caOnclick}')">
+    <div>
       <div class="tc-name">${name}</div>
       <div class="tc-sym">${sym}</div>
-      <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
     </div>
-    <div class="tc-footer" onclick="event.stopPropagation()">
-      ${buyBtn}
-      ${jupiterBtn}
-    </div>
+    <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
+    ${tago?`<div class="tc-time">${tago}</div>`:''}
   </div>
 </div>`;
 }
@@ -440,11 +445,15 @@ async function loadStats(){
 async function getScanResultHtml(ca){
   const isEVM=/^0x[a-fA-F0-9]{40}$/.test(ca);
   const isSol=!isEVM&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
+  const chainSelect=document.getElementById('chainSelect').value;
+  const forceBase=chainSelect==='base'||(chainSelect==='auto'&&isEVM&&false);
+  const isBase=isEVM&&(chainSelect==='base');
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
   if(isEVM){
-    chain='ETH';
-    const res=await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses='+ca);
+    const chainId=isBase?'8453':'1';
+    chain=isBase?'BASE':'ETH';
+    const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
     const data=await res.json();
     const sd=data.result?.[ca.toLowerCase()];
     if(!sd)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:var(--muted);text-align:center;">Token not found.</div></div>';
@@ -506,8 +515,29 @@ document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='En
 function closeScanModal(){
   document.getElementById('scanModalOverlay').classList.remove('show');
 }
-function openCardModal(ca){
-  openScanModal(ca);
+async function openCardModal(ca){
+  document.getElementById('cardModalOverlay').classList.add('show');
+  const content=document.getElementById('cardModalContent');
+  content.innerHTML='<div class="card-modal-loading"><div class="spin"></div> Scanning...</div>';
+  const origBox=document.getElementById('resultBox');
+  const tempBox=document.createElement('div');
+  tempBox.id='resultBox';
+  document.body.appendChild(tempBox);
+  origBox.id='resultBox_bak';
+  await doScan(ca);
+  content.innerHTML=tempBox.innerHTML;
+  tempBox.remove();
+  origBox.id='resultBox';
+  content.querySelectorAll('.result-jupiter:not(.disabled)').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      if(typeof window.Jupiter==='undefined')return;
+      window.Jupiter.init({displayMode:'modal',initialInputMint:'So11111111111111111111111111111111111111112',initialOutputMint:this.dataset.outputMint,platformFeeBps:100,feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',feeBps:100,containerStyles:{zIndex:1000}});
+    });
+  });
+}
+function closeCardModal(){
+  document.getElementById('cardModalOverlay').classList.remove('show');
+  document.getElementById('cardModalContent').innerHTML='';
 }
 async function openScanModal(ca){
   const overlay=document.getElementById('scanModalOverlay');
@@ -541,5 +571,11 @@ document.addEventListener('click',function(e){
 loadFeed();loadStats();
 setInterval(loadFeed,120000);setInterval(loadStats,60000);
 </script>
+<div class="card-modal-overlay" id="cardModalOverlay" onclick="if(event.target===this)closeCardModal()">
+  <div class="card-modal">
+    <button class="card-modal-close" onclick="closeCardModal()">✕</button>
+    <div id="cardModalContent"></div>
+  </div>
+</div>
 </body>
 </html>
