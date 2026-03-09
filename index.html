@@ -47,6 +47,8 @@ h1 .r{color:var(--red2)}
 @keyframes spin{to{transform:rotate(360deg)}}
 .result-card{background:var(--bg2);border:1px solid var(--border2);padding:20px;text-align:left}
 .result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.result-header-left{display:flex;align-items:center;gap:10px}
+.result-logo{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0}
 .result-name{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--bright)}
 .result-sym{font-size:9px;color:var(--muted);margin-top:3px}
 .risk-pill{font-size:10px;padding:4px 11px;border:1px solid;font-family:'Orbitron',sans-serif}
@@ -446,8 +448,15 @@ async function doScan(ca){
     const buyBtn=isSafeResult
       ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 SNIPE ON BANANA GUN</a>`
       :`<a class="result-buy disabled">⚠️ TOO RISKY TO SNIPE</a>`;
+    let logoUrl=null;
+    try{
+      const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
+      const dexData=await dexRes.json();
+      logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
+    }catch(e){}
+    const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
     box.innerHTML=`<div class="result-card">
-      <div class="result-header"><div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div><span class="risk-pill ${rc}">${risk}%</span></div>
+      <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
       <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
       <div class="result-verdict">${v}</div>
       <div class="result-actions"><a href="https://t.me/RugCopBot" target="_blank" class="result-cta">🔍 FULL SCAN ON TG</a>${buyBtn}</div>
