@@ -367,6 +367,13 @@ function buildCard(t){
     const w=f.includes('FEE')||f.includes('HOLD');
     return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
   }).join('');
+  const isSolChain=chain==='SOL';
+  const cardFooter=isSolChain?`
+  <div class="tc-footer" onclick="event.stopPropagation()">
+    <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.1); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
+    <button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white;" data-output-mint="${ca.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()">⚡️ BUY</button>
+  </div>
+`:'';
   return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
   <div class="tc-img" style="background:var(--bg2)">
     <div style="position:absolute;inset:0;${imgBg}"></div>
@@ -384,6 +391,7 @@ function buildCard(t){
     <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
     ${tago?`<div class="tc-time">${tago}</div>`:''}
   </div>
+  ${cardFooter}
 </div>`;
 }
 
@@ -481,7 +489,7 @@ async function getScanResultHtml(ca){
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   const btnJupiter=isSolChain
-    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</button>`
+    ?`<button type="button" class="result-jupiter" style="background: var(--red); border-color: var(--red2);" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</button>`
     :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
