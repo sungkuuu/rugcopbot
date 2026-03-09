@@ -101,7 +101,7 @@ h1 .r{color:var(--red2)}
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
 
 /* TOKEN CARD — NFT style */
-.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;cursor:default;position:relative;display:flex;flex-direction:column}
+.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;cursor:pointer;position:relative;display:flex;flex-direction:column}
 .token-card:hover{border-color:rgba(184,50,40,.35);transform:translateY(-3px)}
 .token-card.safe-card:hover{border-color:rgba(26,158,80,.35)}
 
@@ -179,6 +179,12 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
   footer{padding:16px 20px;flex-direction:column;gap:10px;text-align:center}
 }
 @media(max-width:480px){.token-grid{grid-template-columns:1fr}}
+.scan-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+.scan-modal-overlay.show{display:flex}
+.scan-modal{position:relative;width:100%;max-width:600px;max-height:90vh;overflow:auto}
+#scanModalContent{padding-top:44px}
+.scan-modal-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:var(--bg3);color:var(--text);border-radius:0;cursor:pointer;font-size:18px;line-height:1;z-index:10;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.scan-modal-close:hover{background:var(--border2);color:var(--bright)}
 </style>
 </head>
 <body>
@@ -240,6 +246,13 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 
 <div class="token-grid" id="tokenGrid">
   <div class="empty-state"><div class="spin" style="margin:0 auto 12px"></div>SCANNING LIVE TOKENS...</div>
+</div>
+
+<div class="scan-modal-overlay" id="scanModalOverlay" onclick="if(event.target===this)closeScanModal()">
+  <div class="scan-modal">
+    <button type="button" class="scan-modal-close" onclick="closeScanModal()" aria-label="Close">×</button>
+    <div id="scanModalContent"></div>
+  </div>
 </div>
 
 <section class="features">
@@ -328,28 +341,12 @@ function buildCard(t){
   const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
   const cardCls=isSafe?' safe-card':'';
   const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
-
-  const flags=typeof t.flags==='string'?JSON.parse(t.flags||'[]'):(t.flags||[]);
-  const flagsStr=flags.filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
-    const g=f.includes('LOCK')||f==='LP_LOCKED';
-    const w=f.includes('FEE')||f.includes('HOLD');
-    return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
-  }).join('');
-
   const name=t.name&&t.name!=='Unknown'?t.name:(t.symbol&&t.symbol!=='???'?t.symbol:'UNKNOWN');
   const sym=t.symbol&&t.symbol!=='???'?'$'+t.symbol:'';
   const ca=t.ca||'';
   const chain=t.chain||'SOL';
-  const tago=t.timestamp?timeAgo(t.timestamp):'';
   const imgBg=getImgBg(t.risk);
-
-  const buyBtn=isSafe
-    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a>`
-    :`<span class="tc-btn tc-skip-btn">⛔ SKIP</span>`;
-  const jupiterBtn=chain==='SOL'
-    ?`<button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" data-output-mint="${ca.replace(/"/g,'&quot;')}"><img src="https://jup.ag/favicon.ico" alt="" class="tc-jupiter-logo" onerror="this.style.display=\'none\'"> Buy on Jupiter</button>`
-    :'';
-  return`<div class="token-card${cardCls}">
+  return`<div class="token-card${cardCls}" data-ca="${ca.replace(/"/g,'&quot;')}">
   <div class="tc-img" style="background:var(--bg2)">
     <div style="position:absolute;inset:0;${imgBg}"></div>
     ${imgContent}${fallback}
@@ -359,17 +356,8 @@ function buildCard(t){
     <span class="tc-verdict">${verdictText}</span>
   </div>
   <div class="tc-body">
-    <div>
-      <div class="tc-name">${name}</div>
-      <div class="tc-sym">${sym}</div>
-    </div>
-    <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
-    <div class="tc-footer">
-      <a onclick="document.getElementById('caInput').value='${ca}';window.scrollTo({top:0,behavior:'smooth'});setTimeout(runScan,600);" class="tc-btn tc-scan-btn" style="cursor:pointer">🔍 SCAN</a>
-      ${buyBtn}
-      ${jupiterBtn}
-    </div>
-    ${tago?`<div class="tc-time">${tago}</div>`:''}
+    <div class="tc-name">${name}</div>
+    <div class="tc-sym">${sym}</div>
   </div>
 </div>`;
 }
@@ -427,70 +415,89 @@ async function loadStats(){
   }catch(e){}
 }
 
+async function getScanResultHtml(ca){
+  const isEVM=/^0x[a-fA-F0-9]{40}$/.test(ca);
+  const isSol=!isEVM&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
+  if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
+  let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
+  if(isEVM){
+    chain='ETH';
+    const res=await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses='+ca);
+    const data=await res.json();
+    const sd=data.result?.[ca.toLowerCase()];
+    if(!sd)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:var(--muted);text-align:center;">Token not found.</div></div>';
+    name=sd.token_name||'Unknown';sym=sd.token_symbol||'?';
+    const hp=sd.is_honeypot==='1',mt=sd.is_mintable==='1';
+    const bt=Math.round((sd.buy_tax||0)*100),st=Math.round((sd.sell_tax||0)*100);
+    risk=hp?99:mt?85:(bt>10||st>10)?65:15;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+    flags=[{k:'Honeypot',v:hp?'🚨 YES':'✅ NO',c:hp?'val-danger':'val-safe'},{k:'Mintable',v:mt?'🚨 YES':'✅ NO',c:mt?'val-danger':'val-safe'},{k:'Buy Tax',v:bt+'%',c:bt>10?'val-warn':'val-safe'},{k:'Sell Tax',v:st+'%',c:st>10?'val-warn':'val-safe'}];
+  }else{
+    chain='SOL';
+    const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
+    const data=await res.json();
+    const key=Object.keys(data.result||{})[0];
+    const sd=data.result?.[key];
+    if(!sd)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:var(--muted);text-align:center;">Token not found.</div></div>';
+    const fz=sd.freezable?.status==='1',mu=sd.balance_mutable_authority?.status==='1',cl=sd.closable?.status==='1';
+    const topH=sd.top_holders||[];
+    const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
+    const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
+    if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
+    risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
+  }
+  const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
+  const isSolChain=chain==='SOL';
+  const btnBanana=isSolChain
+    ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
+    :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
+  const btnJupiter=isSolChain
+    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</button>`
+    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</span>`;
+  let logoUrl=null;
+  try{
+    const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
+    const dexData=await dexRes.json();
+    logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
+  }catch(e){}
+  const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
+  return`<div class="result-card">
+    <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
+    <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    <div class="result-verdict">${v}</div>
+    <div class="result-actions">${btnBanana}${btnJupiter}</div>
+  </div>`;
+}
+
 async function doScan(ca){
   const box=document.getElementById('resultBox');
   box.className='result-box show';
   box.innerHTML='<div class="loading"><div class="spin"></div> Scanning on-chain data...</div>';
-  const isEVM=/^0x[a-fA-F0-9]{40}$/.test(ca);
-  const isSol=!isEVM&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ca);
-  if(!isEVM&&!isSol){box.innerHTML='<div style="font-size:9px;color:#d94535;text-align:center;padding:12px;">Invalid address.</div>';return;}
   try{
-    let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
-    if(isEVM){
-      chain='ETH';
-      const res=await fetch('https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses='+ca);
-      const data=await res.json();
-      const sd=data.result?.[ca.toLowerCase()];
-      if(!sd){box.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:12px;">Token not found.</div>';return;}
-      name=sd.token_name||'Unknown';sym=sd.token_symbol||'?';
-      const hp=sd.is_honeypot==='1',mt=sd.is_mintable==='1';
-      const bt=Math.round((sd.buy_tax||0)*100),st=Math.round((sd.sell_tax||0)*100);
-      risk=hp?99:mt?85:(bt>10||st>10)?65:15;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-      flags=[{k:'Honeypot',v:hp?'🚨 YES':'✅ NO',c:hp?'val-danger':'val-safe'},{k:'Mintable',v:mt?'🚨 YES':'✅ NO',c:mt?'val-danger':'val-safe'},{k:'Buy Tax',v:bt+'%',c:bt>10?'val-warn':'val-safe'},{k:'Sell Tax',v:st+'%',c:st>10?'val-warn':'val-safe'}];
-    }else{
-      chain='SOL';
-      const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
-      const data=await res.json();
-      const key=Object.keys(data.result||{})[0];
-      const sd=data.result?.[key];
-      if(!sd){box.innerHTML='<div style="font-size:9px;color:var(--muted);text-align:center;padding:12px;">Token not found.</div>';return;}
-      const fz=sd.freezable?.status==='1',mu=sd.balance_mutable_authority?.status==='1',cl=sd.closable?.status==='1';
-      const topH=sd.top_holders||[];
-      const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
-      const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
-      if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
-      risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-      flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
-    }
-    const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
-    const isSol=chain==='SOL';
-    const SOL_MINT='So11111111111111111111111111111111111111112';
-    const btnBanana=isSol
-      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
-      :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
-    const btnJupiter=isSol
-      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</button>`
-      :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</span>`;
-    let logoUrl=null;
-    try{
-      const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
-      const dexData=await dexRes.json();
-      logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
-    }catch(e){}
-    const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
-    box.innerHTML=`<div class="result-card">
-      <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
-      <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
-      <div class="result-verdict">${v}</div>
-      <div class="result-actions">${btnBanana}${btnJupiter}</div>
-    </div>`;
-  }catch(e){box.innerHTML='<div style="font-size:9px;color:#d94535;text-align:center;padding:12px;">Scan failed. Try Telegram bot.</div>';}
+    box.innerHTML=await getScanResultHtml(ca);
+  }catch(e){box.innerHTML='<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Scan failed. Try Telegram bot.</div></div>';}
 }
 
 function runScan(){const ca=document.getElementById('caInput').value.trim();if(ca)doScan(ca);}
 document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
 
+function closeScanModal(){
+  document.getElementById('scanModalOverlay').classList.remove('show');
+}
+async function openScanModal(ca){
+  const overlay=document.getElementById('scanModalOverlay');
+  const content=document.getElementById('scanModalContent');
+  overlay.classList.add('show');
+  content.innerHTML='<div class="loading" style="padding:40px"><div class="spin"></div> Scanning on-chain data...</div>';
+  try{
+    content.innerHTML=await getScanResultHtml(ca);
+  }catch(e){
+    content.innerHTML='<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Scan failed. Try again.</div></div>';
+  }
+}
 document.addEventListener('click',function(e){
+  const card=e.target.closest('.token-card');
+  if(card&&card.dataset.ca){openScanModal(card.dataset.ca);return;}
   const btn=e.target.closest('.result-jupiter:not(.disabled), .open-jupiter-btn');
   if(!btn||!btn.dataset.outputMint)return;
   const outputMint=btn.dataset.outputMint;
