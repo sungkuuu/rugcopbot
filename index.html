@@ -36,12 +36,12 @@ h1 .r{color:var(--red2)}
 
 .scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:0}
 .chain-select{background:var(--bg2);border:1px solid var(--border2);border-right:none;padding:13px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center}
-.chain-select:focus{border-color:var(--green)}
+.chain-select:focus{border-color:var(--red)}
 .scan-input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
 .scan-input::placeholder{color:var(--muted)}
-.scan-input:focus{border-color:var(--green)}
-.scan-btn{background:var(--green);color:white;border:none;padding:13px 20px;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;transition:background .15s;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
-.scan-btn:hover{background:#158c45;color:white}
+.scan-input:focus{border-color:var(--red)}
+.scan-btn{background:var(--red);color:white;border:none;padding:13px 20px;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;transition:background .15s;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.scan-btn:hover{background:var(--red2)}
 .scan-result{max-width:600px;margin:0 auto 0}
 .result-box{display:none}.result-box.show{display:block;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -501,6 +501,13 @@ async function getScanResultHtml(ca){
     flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
+  const isSolChain=chain==='SOL';
+  const btnBanana=isSolChain
+    ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
+    :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
+  const btnJupiter=isSolChain
+    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</button>`
+    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
     const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
@@ -512,6 +519,7 @@ async function getScanResultHtml(ca){
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
+    <div class="result-actions">${btnBanana}${btnJupiter}</div>
   </div>`;
 }
 
@@ -530,25 +538,57 @@ document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='En
 function closeScanModal(){
   document.getElementById('scanModalOverlay').classList.remove('show');
 }
-async function openCardModal(ca){
+function openCardModal(ca) {
   document.getElementById('cardModalOverlay').classList.add('show');
-  const content=document.getElementById('cardModalContent');
-  content.innerHTML='<div class="card-modal-loading"><div class="spin"></div> Scanning...</div>';
-  const origBox=document.getElementById('resultBox');
-  const tempBox=document.createElement('div');
-  tempBox.id='resultBox';
-  document.body.appendChild(tempBox);
-  origBox.id='resultBox_bak';
-  await doScan(ca);
-  content.innerHTML=tempBox.innerHTML;
-  tempBox.remove();
-  origBox.id='resultBox';
-  content.querySelectorAll('.result-jupiter:not(.disabled)').forEach(btn=>{
-    btn.addEventListener('click',function(){
-      if(typeof window.Jupiter==='undefined')return;
-      window.Jupiter.init({displayMode:'modal',initialInputMint:'So11111111111111111111111111111111111111112',initialOutputMint:this.dataset.outputMint,platformFeeBps:100,feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',feeBps:100,containerStyles:{zIndex:1000}});
-    });
-  });
+  const content = document.getElementById('cardModalContent');
+  const t = allTokens.find(x => x.ca === ca);
+
+  if (!t) {
+    content.innerHTML = '<div style="padding:20px; text-align:center;">Data not found.</div>';
+    return;
+  }
+
+  const isSol = (t.chain || 'SOL') === 'SOL';
+  const isMut = (t.flags || []).includes('MUTABLE_METADATA') || (t.flags || []).includes('MUTABLE');
+  const isFre = (t.flags || []).includes('FREEZE_AUTHORITY') || (t.flags || []).includes('FREEZABLE');
+  const top10 = t.top10pct ? Math.round(t.top10pct) + '%' : 'N/A';
+  const vol = t.volume24h ? '$' + Number(t.volume24h).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
+  const mcap = (t.marketCap || t.market_cap) ? '$' + Number(t.marketCap || t.market_cap).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
+  const riskColor = t.risk >= 70 ? '#d94535' : t.risk <= 30 ? '#1a9e50' : '#c49a14';
+
+  content.innerHTML = `
+    <div style="padding: 24px; font-family: 'IBM Plex Mono', monospace; color: var(--text); font-size: 14px; line-height: 2;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom: 20px;">
+        ${t.logo ? `<img src="${t.logo}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--border);">` : '<div style="font-size:32px;">🚨</div>'}
+        <div style="font-family:'Orbitron', sans-serif; font-size: 16px; color: var(--bright);">
+          ${t.name} | ${t.chain || 'SOL'} | Risk: <span style="color:${riskColor}">${t.risk}%</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <span style="color:var(--muted)">CA:</span><br>
+        <span style="color:var(--bright); word-break: break-all; font-size: 12px; background: var(--bg3); padding: 4px 8px; border-radius: 4px;">${t.ca}</span>
+      </div>
+
+      <div style="margin-bottom: 16px; display:flex; gap: 24px;">
+        <div>⚖️ Mutable: ${isMut ? '🚨 YES' : '✅ NO'}</div>
+        <div>🧊 Freezable: ${isFre ? '🚨 YES' : '✅ NO'}</div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        👥 Top 10 Holders: <span style="color:var(--bright)">${top10}</span>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <div>💰 Vol 24h: <span style="color:var(--green)">${vol}</span></div>
+        <div>📊 MCap: <span style="color:var(--bright)">${mcap}</span></div>
+      </div>
+
+      <div style="text-align:left; color: var(--muted); font-size: 12px; border-top: 1px dashed var(--border); padding-top: 16px;">
+        Scan before you ape 👇 <span style="color: var(--red2);">rugcop.xyz</span>
+      </div>
+    </div>
+  `;
 }
 function closeCardModal(){
   document.getElementById('cardModalOverlay').classList.remove('show');
