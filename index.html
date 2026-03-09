@@ -65,6 +65,7 @@ h1 .r{color:var(--red2)}
 .result-actions{display:flex;gap:6px}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
+.result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
 .result-buy{flex:1;display:block;text-align:center;background:var(--green);color:white;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:opacity .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
 .result-buy:hover{opacity:.85}
 .result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3)}
@@ -444,10 +445,15 @@ async function doScan(ca){
       flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
     }
     const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
-    const isSafeResult=risk<=30;
-    const buyBtn=isSafeResult
-      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 SNIPE ON BANANA GUN</a>`
-      :`<a class="result-buy disabled">⚠️ TOO RISKY TO SNIPE</a>`;
+    const isSol=chain==='SOL';
+    const SOL_MINT='So11111111111111111111111111111111111111112';
+    const jupiterHref='https://jupiter.ag/swap?inputMint='+SOL_MINT+'&outputMint='+encodeURIComponent(ca_addr)+'&referralAccount=DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV&feeBps=100';
+    const btnBanana=isSol
+      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 Snipe on Banana Gun</a>`
+      :`<span class="result-buy disabled">🍌 Snipe on Banana Gun</span>`;
+    const btnJupiter=isSol
+      ?`<a href="${jupiterHref}" target="_blank" class="result-cta">⚡️ Buy on Jupiter</a>`
+      :`<span class="result-cta disabled">⚡️ Buy on Jupiter</span>`;
     let logoUrl=null;
     try{
       const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
@@ -459,7 +465,7 @@ async function doScan(ca){
       <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
       <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
       <div class="result-verdict">${v}</div>
-      <div class="result-actions"><a href="https://t.me/RugCopBot" target="_blank" class="result-cta">🔍 FULL SCAN ON TG</a>${buyBtn}</div>
+      <div class="result-actions">${btnBanana}${btnJupiter}</div>
     </div>`;
   }catch(e){box.innerHTML='<div style="font-size:9px;color:#d94535;text-align:center;padding:12px;">Scan failed. Try Telegram bot.</div>';}
 }
