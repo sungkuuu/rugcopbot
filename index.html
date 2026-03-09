@@ -66,6 +66,9 @@ h1 .r{color:var(--red2)}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
+.result-jupiter{flex:1;display:block;text-align:center;background:#19CEBF;border:1px solid rgba(25,206,191,.5);color:#fff;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.result-jupiter:hover{background:#17b8ab;color:#fff}
+.result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);clip-path:none;pointer-events:none;cursor:default}
 .result-buy{flex:1;display:block;text-align:center;background:var(--green);color:white;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:opacity .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
 .result-buy:hover{opacity:.85}
 .result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3)}
@@ -456,8 +459,8 @@ async function doScan(ca){
       ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 Snipe on Banana Gun</a>`
       :`<span class="result-buy disabled">🍌 Snipe on Banana Gun</span>`;
     const btnJupiter=isSol
-      ?`<a href="${jupiterHref}" target="_blank" class="result-cta">⚡️ Buy on Jupiter</a>`
-      :`<span class="result-cta disabled">⚡️ Buy on Jupiter</span>`;
+      ?`<a href="${jupiterHref}" target="_blank" class="result-jupiter">⚡️ Buy on Jupiter</a>`
+      :`<span class="result-jupiter disabled">⚡️ Buy on Jupiter</span>`;
     let logoUrl=null;
     try{
       const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
