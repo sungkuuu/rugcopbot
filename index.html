@@ -127,16 +127,14 @@ h1 .r{color:var(--red2)}
 .tcf-safe{background:rgba(26,158,80,.07);color:#1a9e50;border-color:rgba(26,158,80,.2)}
 .tcf-warn{background:rgba(196,154,20,.07);color:#a88010;border-color:rgba(196,154,20,.2)}
 
-.tc-footer{display:flex;gap:5px;margin-top:auto}
-.tc-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:0.8rem;padding:10px 14px;text-align:center;text-decoration:none;transition:all .15s;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid;border-radius:0;box-sizing:border-box;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
-.tc-scan-btn{background:transparent;border-color:rgba(255,255,255,.3);color:#fff}
-.tc-scan-btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.3);color:#fff}
-.tc-buy-btn{background:var(--green);color:#fff;border-color:var(--green);clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.tc-footer{display:flex;gap:4px;margin-top:auto;padding:0 14px 14px}
+.tc-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:0.65rem;padding:7px 8px;text-align:center;text-decoration:none;transition:all .15s;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid;border-radius:0;box-sizing:border-box;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px))}
+.tc-buy-btn{background:var(--green);color:#fff;border-color:var(--green)}
 .tc-buy-btn:hover{opacity:.9;color:#fff}
-.tc-jupiter-btn{background:transparent;border-color:rgba(255,255,255,.3);color:#fff;cursor:pointer;font-size:0.8rem;white-space:nowrap}
+.tc-jupiter-btn{background:transparent;border-color:rgba(255,255,255,.25);color:#fff;cursor:pointer}
 .tc-jupiter-btn:hover{background:rgba(255,255,255,.06);color:#fff}
-.tc-jupiter-btn .tc-jupiter-logo{width:24px;height:24px;object-fit:contain;flex-shrink:0}
-.tc-skip-btn{background:rgba(184,50,40,.08);color:#c44030;border-color:rgba(184,50,40,.2);pointer-events:none;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.tc-jupiter-btn .tc-jupiter-logo{width:14px;height:14px;object-fit:contain;flex-shrink:0}
+.tc-skip-btn{background:rgba(184,50,40,.08);color:#c44030;border-color:rgba(184,50,40,.2);pointer-events:none}
 .tc-time{font-size:7px;color:var(--muted);letter-spacing:.06em;text-align:right;margin-top:4px}
 
 /* FEATURES */
@@ -483,8 +481,8 @@ async function getScanResultHtml(ca){
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   const btnJupiter=isSolChain
-    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</button>`
-    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy on Jupiter</span>`;
+    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</button>`
+    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
     const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
