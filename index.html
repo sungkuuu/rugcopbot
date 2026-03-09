@@ -69,11 +69,9 @@ h1 .r{color:var(--red2)}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
-.result-jupiter{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:0;overflow:visible;color:#fff;padding:13px 20px;min-height:auto;font-size:0.85rem;font-family:'Orbitron',sans-serif;text-decoration:none;transition:background .15s;cursor:pointer;width:100%;box-sizing:border-box;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));white-space:nowrap}
-.result-jupiter:hover{background:rgba(255,255,255,.06);color:#fff}
+.result-jupiter,.result-buy{background:rgba(26,158,80,.1);color:#1a9e50;border:1px solid rgba(26,158,80,.2);display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;padding:13px 20px;font-size:.85rem;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;cursor:pointer;box-sizing:border-box;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));white-space:nowrap;flex:1;width:100%}
+.result-jupiter:hover,.result-buy:hover{background:rgba(26,158,80,.2);color:#fff}
 .result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default;clip-path:none}
-.result-buy{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:0;overflow:visible;color:#fff;padding:13px 20px;min-height:auto;font-size:0.85rem;font-family:'Orbitron',sans-serif;text-decoration:none;transition:background .15s;box-sizing:border-box;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));white-space:nowrap}
-.result-buy:hover{background:rgba(255,255,255,.06);color:#fff}
 .result-buy.disabled{background:var(--muted);pointer-events:none;color:rgba(255,255,255,.3);border-color:var(--border);clip-path:none}
 .result-actions .btn-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .result-actions .btn-icon img{width:24px;height:24px;object-fit:contain;vertical-align:middle}
@@ -371,7 +369,9 @@ function buildCard(t){
   const cardFooter=isSolChain?`
   <div class="tc-footer" onclick="event.stopPropagation()">
     <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.1); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
-    <button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white;" data-output-mint="${ca.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()">⚡️ BUY</button>
+    <button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white; display:flex; align-items:center; justify-content:center; gap:4px;" data-output-mint="${ca.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()">
+      <img src="https://jup.ag/favicon.ico" style="width:14px;height:14px;border-radius:50%;" alt=""> BUY
+    </button>
   </div>
 `:'';
   return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
