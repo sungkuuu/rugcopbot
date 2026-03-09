@@ -301,6 +301,22 @@ const STATS='https://rugcopbot-production.up.railway.app/api/stats';
 let allTokens=[];
 let currentFilter='all';
 
+function buyJupiter(e,mint){
+  e.stopPropagation();
+  if(typeof window.Jupiter!=='undefined'){
+    window.Jupiter.init({
+      displayMode:'modal',
+      initialInputMint:'So11111111111111111111111111111111111111112',
+      initialOutputMint:mint,
+      platformFeeBps:100,
+      feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+      referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+      feeBps:100,
+      containerStyles:{zIndex:1000}
+    });
+  }
+}
+
 function getEmoji(name,risk){
   if(risk>=90)return'💀';if(risk<=20)return'✅';
   const n=(name||'').toLowerCase();
@@ -366,10 +382,11 @@ function buildCard(t){
     return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
   }).join('');
   const isSolChain=chain==='SOL';
+  const caJupiter=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const cardFooter=isSolChain?`
   <div class="tc-footer" onclick="event.stopPropagation()">
     <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.1); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
-    <button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white; display:flex; align-items:center; justify-content:center; gap:4px;" data-output-mint="${ca.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()">
+    <button type="button" class="tc-btn tc-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="buyJupiter(event, '${caJupiter}')">
       <img src="https://jup.ag/favicon.ico" style="width:14px;height:14px;border-radius:50%;" alt=""> BUY
     </button>
   </div>
