@@ -548,7 +548,9 @@ app.get('/api/recent-rugs', async (req, res) => {
     }
   }
   const rugs = loadRugs();
-  const formatted = rugs.map(r => ({
+  const sorted = rugs.slice().sort((a, b) => (b.time || 0) - (a.time || 0));
+  const limited = sorted.slice(0, 50);
+  const formatted = limited.map(r => ({
     ...r,
     timeAgo: getTimeAgo(r.time),
     riskLabel: getRiskLabel(r.risk ?? 0),
