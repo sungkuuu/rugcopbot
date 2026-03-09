@@ -101,7 +101,7 @@ h1 .r{color:var(--red2)}
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:9px;letter-spacing:.1em}
 
 /* TOKEN CARD — NFT style */
-.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;cursor:pointer;position:relative;display:flex;flex-direction:column}
+.token-card{background:var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .18s,transform .18s;position:relative;display:flex;flex-direction:column}
 .token-card:hover{border-color:rgba(184,50,40,.35);transform:translateY(-3px)}
 .token-card.safe-card:hover{border-color:rgba(26,158,80,.35)}
 
@@ -116,9 +116,10 @@ h1 .r{color:var(--red2)}
 .tc-verdict{position:absolute;bottom:10px;left:10px;font-size:8px;font-family:'Orbitron',sans-serif;color:white;letter-spacing:.06em}
 
 .tc-body{padding:14px;flex:1;display:flex;flex-direction:column;gap:8px}
+.tc-body-top{flex:1}
+.tc-flags{display:flex;gap:3px;flex-wrap:wrap;min-height:18px}
 .tc-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tc-sym{font-size:9px;color:var(--muted);margin-top:-4px}
-.tc-flags{display:flex;gap:3px;flex-wrap:wrap;min-height:18px}
 .tcf{font-size:7px;padding:2px 5px;border:1px solid}
 .tcf-danger{background:rgba(184,50,40,.07);color:#c44030;border-color:rgba(184,50,40,.2)}
 .tcf-safe{background:rgba(26,158,80,.07);color:#1a9e50;border-color:rgba(26,158,80,.2)}
@@ -345,9 +346,23 @@ function buildCard(t){
   const sym=t.symbol&&t.symbol!=='???'?'$'+t.symbol:'';
   const ca=t.ca||'';
   const chain=t.chain||'SOL';
+  const caEsc=ca.replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  const caOnclick=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const imgBg=getImgBg(t.risk);
-  return`<div class="token-card${cardCls}" data-ca="${ca.replace(/"/g,'&quot;')}">
-  <div class="tc-img" style="background:var(--bg2)">
+  const flags=typeof t.flags==='string'?JSON.parse(t.flags||'[]'):(t.flags||[]);
+  const flagsStr=flags.filter(f=>f!=='NO_SCAN_DATA').slice(0,4).map(f=>{
+    const g=f.includes('LOCK')||f==='LP_LOCKED';
+    const w=f.includes('FEE')||f.includes('HOLD');
+    return`<span class="tcf ${g?'tcf-safe':w?'tcf-warn':'tcf-danger'}">${f}</span>`;
+  }).join('');
+  const buyBtn=isSafe
+    ?`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn">🍌 SNIPE</a>`
+    :`<span class="tc-btn tc-skip-btn">⛔ SKIP</span>`;
+  const jupiterBtn=chain==='SOL'
+    ?`<button type="button" class="tc-btn tc-jupiter-btn open-jupiter-btn" data-output-mint="${caEsc}"><img src="https://jup.ag/favicon.ico" alt="" class="tc-jupiter-logo" onerror="this.style.display=\'none\'"> Buy on Jupiter</button>`
+    :'';
+  return`<div class="token-card${cardCls}">
+  <div class="tc-img" style="background:var(--bg2);cursor:pointer" onclick="openCardModal('${caOnclick}')">
     <div style="position:absolute;inset:0;${imgBg}"></div>
     ${imgContent}${fallback}
     <div class="tc-img-overlay"></div>
@@ -356,8 +371,15 @@ function buildCard(t){
     <span class="tc-verdict">${verdictText}</span>
   </div>
   <div class="tc-body">
-    <div class="tc-name">${name}</div>
-    <div class="tc-sym">${sym}</div>
+    <div class="tc-body-top" style="cursor:pointer" onclick="openCardModal('${caOnclick}')">
+      <div class="tc-name">${name}</div>
+      <div class="tc-sym">${sym}</div>
+      <div class="tc-flags">${flagsStr||'<span style="font-size:7px;color:var(--muted)">NO FLAGS DETECTED</span>'}</div>
+    </div>
+    <div class="tc-footer" onclick="event.stopPropagation()">
+      ${buyBtn}
+      ${jupiterBtn}
+    </div>
   </div>
 </div>`;
 }
@@ -484,6 +506,9 @@ document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='En
 function closeScanModal(){
   document.getElementById('scanModalOverlay').classList.remove('show');
 }
+function openCardModal(ca){
+  openScanModal(ca);
+}
 async function openScanModal(ca){
   const overlay=document.getElementById('scanModalOverlay');
   const content=document.getElementById('scanModalContent');
@@ -496,8 +521,6 @@ async function openScanModal(ca){
   }
 }
 document.addEventListener('click',function(e){
-  const card=e.target.closest('.token-card');
-  if(card&&card.dataset.ca){openScanModal(card.dataset.ca);return;}
   const btn=e.target.closest('.result-jupiter:not(.disabled), .open-jupiter-btn');
   if(!btn||!btn.dataset.outputMint)return;
   const outputMint=btn.dataset.outputMint;
