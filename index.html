@@ -219,6 +219,21 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 .card-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;font-family:'IBM Plex Mono',monospace;line-height:1}
 .card-modal-close:hover{color:var(--bright)}
 .card-modal-loading{text-align:center;padding:32px;font-size:9px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px}
+/* 🔥 [NEW] 모바일 반응형 최적화 (매수 버튼 세로 정렬) 🔥 */
+@media screen and (max-width: 600px) {
+  .result-actions {
+    display: flex;
+    flex-direction: column !important; /* 모바일에서는 버튼을 위아래로 쌓음 */
+    gap: 12px !important;
+  }
+  
+  .result-actions a, .result-actions button, .tc-buy-btn, .tc-jupiter-btn {
+    width: 100% !important; /* 모바일 화면 가로 100% 채우기 */
+    font-size: 13px !important; /* 폰트 살짝 줄임 */
+    padding: 14px 10px !important;
+    white-space: normal !important; /* 글씨 안 잘리게 */
+  }
+}
 </style>
 </head>
 <body>
