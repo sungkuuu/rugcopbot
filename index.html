@@ -67,12 +67,13 @@ h1 .r{color:var(--red2)}
 .result-cta{flex:1;display:block;text-align:center;background:transparent;border:1px solid var(--red);color:var(--red2);padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
-.result-jupiter{flex:1;display:block;text-align:center;background:#19CEBF;border:1px solid rgba(25,206,191,.5);color:#fff;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));cursor:pointer;width:100%}
-.result-jupiter:hover{background:#17b8ab;color:#fff}
+.result-jupiter{flex:1;display:block;text-align:center;background:transparent;border:1px solid #C7F284;color:#C7F284;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));cursor:pointer;width:100%}
+.result-jupiter:hover{background:rgba(199,242,132,.12);color:#C7F284}
 .result-jupiter.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);clip-path:none;pointer-events:none;cursor:default}
-.result-buy{flex:1;display:block;text-align:center;background:var(--green);color:white;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:opacity .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
-.result-buy:hover{opacity:.85}
-.result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3)}
+.result-buy{flex:1;display:block;text-align:center;background:transparent;border:1px solid #00c44f;color:#00c44f;padding:9px;font-size:8px;font-family:'Orbitron',sans-serif;text-decoration:none;transition:all .15s;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px))}
+.result-buy:hover{background:rgba(0,196,79,.12);color:#00c44f}
+.result-buy.disabled{background:var(--muted);clip-path:none;pointer-events:none;color:rgba(255,255,255,.3);border-color:var(--border)}
+.result-actions .btn-emoji{font-size:1.4em;line-height:1}
 
 .stats-strip{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .stats-row{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
@@ -456,11 +457,11 @@ async function doScan(ca){
     const isSol=chain==='SOL';
     const SOL_MINT='So11111111111111111111111111111111111111112';
     const btnBanana=isSol
-      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy">🍌 Snipe on Banana Gun</a>`
-      :`<span class="result-buy disabled">🍌 Snipe on Banana Gun</span>`;
+      ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-emoji">🍌</span> Snipe on Banana Gun</a>`
+      :`<span class="result-buy disabled"><span class="btn-emoji">🍌</span> Snipe on Banana Gun</span>`;
     const btnJupiter=isSol
-      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}">⚡️ Buy on Jupiter</button>`
-      :`<span class="result-jupiter disabled">⚡️ Buy on Jupiter</span>`;
+      ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-emoji">⚡️</span> Buy on Jupiter</button>`
+      :`<span class="result-jupiter disabled"><span class="btn-emoji">⚡️</span> Buy on Jupiter</span>`;
     let logoUrl=null;
     try{
       const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
