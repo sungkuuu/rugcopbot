@@ -307,6 +307,23 @@ async function heliusRpc(method, params) {
 }
 
 /**
+ * Fetch top 10 token holders via Helius getTokenLargestAccounts (fallback when GoPlus returns none).
+ * Returns array of { address } for use with analyzeBundleRisk.
+ */
+async function fetchTopHoldersFromHelius(mintAddress) {
+  if (!mintAddress || !HELIUS_API_KEY) return [];
+  try {
+    const raw = await heliusRpc('getTokenLargestAccounts', [mintAddress]);
+    const list = Array.isArray(raw) ? raw : (raw?.value || []);
+    return list.slice(0, 10).map(item => ({
+      address: item.address || item.token_account,
+      owner_address: item.owner,
+      token_account: item.address || item.token_account
+    })).filter(h => h.address || h.token_account);
+  } catch(e) { return []; }
+}
+
+/**
  * Ultra-fast Bundle Risk from top 10 holders: Ghost Wallet + Funding Source overlap.
  * Returns { label, riskAdd }: label for display, riskAdd = 50 (HIGH), 30 (MEDIUM), or 0.
  */
@@ -315,7 +332,7 @@ async function analyzeBundleRisk(holders) {
   const addresses = list
     .map(h => h.address || h.owner_address || h.token_account)
     .filter(Boolean);
-  if (addresses.length === 0) return { label: '✅ NO BUNDLE DETECTED', riskAdd: 0 };
+  if (addresses.length === 0) return { label: '⚠️ BUNDLE SCAN UNAVAILABLE (Holders hidden)', riskAdd: 0 };
 
   const SIG_LIMIT = 50;
   const fundingBySource = {};
@@ -792,9 +809,11 @@ async function runScanInChat(chatId, contractAddress) {
       if (data.code === 1 && data.result && key) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
+        let holders   = sd?.top_holders || [];
+        if (!holders.length) holders = await fetchTopHoldersFromHelius(contractAddress);
         const top10pct = (sd?.top_holders || []).slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
         const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
-        const bundleRisk = await analyzeBundleRisk(sd.top_holders);
+        const bundleRisk = await analyzeBundleRisk(holders);
         const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleRisk.label);
         const baseRisk = calcRisk(sd, 'SOL');
         const finalRisk = Math.min(99, baseRisk + (bundleRisk.riskAdd || 0));
