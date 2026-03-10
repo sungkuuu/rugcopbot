@@ -326,14 +326,22 @@ async function fetchTopHoldersFromHelius(mintAddress) {
       })
     });
     const data = await res.json();
+    if (data.error) {
+      console.error("🚨 Helius RPC Error:", JSON.stringify(data.error));
+      return [];
+    }
     const raw = data.result;
     const list = Array.isArray(raw) ? raw : (raw?.value || []);
+    console.log(`✅ Helius fetched ${list.length} top accounts`);
     return list.slice(0, 10).map(item => ({
       address: item.address || item.token_account,
       owner_address: item.owner,
       token_account: item.address || item.token_account
     })).filter(h => h.address || h.token_account);
-  } catch(e) { return []; }
+  } catch(e) {
+    console.error("🚨 Helius Catch Error:", e.message);
+    return [];
+  }
 }
 
 /**
@@ -824,8 +832,13 @@ async function runScanInChat(chatId, contractAddress) {
         const meta    = sd.metadata || {};
         let holders   = sd?.top_holders || [];
         if (!holders.length) holders = await fetchTopHoldersFromHelius(contractAddress);
-        const top10pct = (sd?.top_holders || []).slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
-        const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
+        let top10str = 'N/A';
+        if (sd?.top_holders && sd.top_holders.length > 0) {
+          const top10pct = sd.top_holders.slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
+          if (top10pct > 0) top10str = Math.round(top10pct) + '%';
+        } else if (holders && holders.length > 0) {
+          top10str = '⚠️ Hidden (Fetched via RPC)';
+        }
         const bundleRisk = await analyzeBundleRisk(holders);
         const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleRisk.label);
         const baseRisk = calcRisk(sd, 'SOL');
