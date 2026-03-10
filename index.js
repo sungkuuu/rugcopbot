@@ -306,153 +306,84 @@ async function heliusRpc(method, params) {
   } catch(e) { return null; }
 }
 
-/**
- * Fetch top 10 token holders via Helius getTokenLargestAccounts (fallback when GoPlus returns none).
- * Returns array of { address, token_account } for use with analyzeBundleRisk (ATAs).
- */
-async function fetchTopHoldersFromHelius(mintAddress) {
-  if (!mintAddress) return [];
-  const apiKey = process.env.HELIUS_API_KEY;
-  if (!apiKey) return [];
-  try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getTokenLargestAccounts',
-        params: [mintAddress]
-      })
-    });
-    const data = await res.json();
-    if (data.error) {
-      console.error("🚨 Helius RPC Error:", JSON.stringify(data.error));
-      return [];
-    }
-    const raw = data.result;
-    const list = Array.isArray(raw) ? raw : (raw?.value || []);
-    console.log(`✅ Helius fetched ${list.length} top accounts`);
-    return list.slice(0, 10).map(item => ({
-      address: item.address || item.token_account,
-      owner_address: item.owner,
-      token_account: item.address || item.token_account
-    })).filter(h => h.address || h.token_account);
-  } catch(e) {
-    console.error("🚨 Helius Catch Error:", e.message);
-    return [];
-  }
-}
+/** Known CEX / high-volume hot wallets to exclude from bundle funder tally. */
+const KNOWN_CEX_ADDRESSES = new Set(['Binance', 'Coinbase', 'OKX', 'Kraken', 'Bybit']);
 
 /**
- * Ultra-fast Bundle Risk from top 10 holders: Ghost Wallet + Funding Source overlap.
- * Returns { label, riskAdd }: label for display, riskAdd = 50 (HIGH), 30 (MEDIUM), or 0.
- */
-async function analyzeBundleRisk(holders) {
-  const list = (holders || []).slice(0, 10);
-  const addresses = list
-    .map(h => h.address || h.owner_address || h.token_account)
-    .filter(Boolean);
-  if (addresses.length === 0) return { label: '⏳ Pool/Curve (Holders N/A)', riskAdd: 0 };
-
-  const SIG_LIMIT = 50;
-  const fundingBySource = {};
-
-  const fetchSigs = async (addr) => {
-    try {
-      const sigs = await heliusRpc('getSignaturesForAddress', [addr, { limit: SIG_LIMIT }]);
-      return { addr, sigs: Array.isArray(sigs) ? sigs : [] };
-    } catch(e) { return { addr, sigs: [] }; }
-  };
-
-  const results = await Promise.all(addresses.map(fetchSigs));
-
-  for (const { addr, sigs } of results) {
-    if (sigs.length >= SIG_LIMIT) continue;
-    if (sigs.length === 0) continue;
-    const lastSig = sigs[sigs.length - 1];
-    const sigStr = typeof lastSig === 'string' ? lastSig : lastSig?.signature;
-    if (!sigStr) continue;
-    try {
-      const tx = await heliusRpc('getTransaction', [sigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-      if (!tx?.transaction?.message?.accountKeys?.length) continue;
-      const keys = tx.transaction.message.accountKeys;
-      const feePayer = (keys[0] && typeof keys[0] === 'object' && keys[0].pubkey) ? keys[0].pubkey : (typeof keys[0] === 'string' ? keys[0] : null);
-      if (!feePayer) continue;
-      fundingBySource[feePayer] = (fundingBySource[feePayer] || 0) + 1;
-    } catch(e) { /* skip */ }
-  }
-
-  const counts = Object.values(fundingBySource).filter(c => c > 0);
-  const maxSame = counts.length ? Math.max(...counts) : 0;
-
-  if (maxSame >= 7) return { label: '🔴 BUNDLE RISK: HIGH (Dev Sniped)', riskAdd: 50 };
-  if (maxSame >= 4) return { label: '🟡 BUNDLE RISK: MEDIUM', riskAdd: 30 };
-  if (maxSame >= 1) return { label: '🟢 BUNDLE RISK: LOW', riskAdd: 0 };
-  return { label: '✅ NO BUNDLE DETECTED', riskAdd: 0 };
-}
-
-/**
- * Genesis Bundle Tracker: when holders are hidden (e.g. in pool), check if token creator
- * funded multiple wallets before/during launch. Uses genesis tx to find creator, then traces
- * creator's SOL transfers to count unique funded addresses.
+ * Temporal bundle detection: genesis + early snipers (within 60s), trace funders.
  * Returns { label, riskAdd, flags }.
  */
-async function checkGenesisBundle(ca) {
-  if (!ca || !HELIUS_API_KEY) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+async function detectSniperBundle(ca) {
+  if (!ca || !HELIUS_API_KEY) return { label: '⚠️ UNAVAILABLE (RPC Error)', riskAdd: 20, flags: [] };
   try {
     const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 100 }]);
     const list = Array.isArray(sigs) ? sigs : [];
-    if (list.length === 0) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    if (list.length === 0) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
 
-    const genesisSig = list[list.length - 1];
-    const genesisSigStr = typeof genesisSig === 'string' ? genesisSig : genesisSig?.signature;
-    if (!genesisSigStr) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    const genesisItem = list[list.length - 1];
+    const genesisSig = typeof genesisItem === 'string' ? genesisItem : genesisItem?.signature;
+    if (!genesisSig) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
 
-    const genesisTx = await heliusRpc('getTransaction', [genesisSigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-    if (!genesisTx?.transaction?.message?.accountKeys?.length) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    const genesisTx = await heliusRpc('getTransaction', [genesisSig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+    if (!genesisTx?.transaction?.message?.accountKeys?.length) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
 
-    const keys = genesisTx.transaction.message.accountKeys;
-    const creatorAddress = (keys[0] && typeof keys[0] === 'object' && keys[0].pubkey) ? keys[0].pubkey : (typeof keys[0] === 'string' ? keys[0] : null);
-    if (!creatorAddress) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    const genesisBlockTime = genesisTx.blockTime ?? 0;
+    const keys0 = genesisTx.transaction.message.accountKeys;
+    const feePayer0 = (keys0[0] && typeof keys0[0] === 'object' && keys0[0].pubkey) ? keys0[0].pubkey : (typeof keys0[0] === 'string' ? keys0[0] : null);
 
-    const creatorSigs = await heliusRpc('getSignaturesForAddress', [creatorAddress, { limit: 50 }]);
-    const creatorList = Array.isArray(creatorSigs) ? creatorSigs : [];
-    const toFetch = creatorList.slice(0, 10);
-    const funded = new Set();
+    const earlyItems = list.slice(-20);
+    const snipers = new Set();
+    if (feePayer0) snipers.add(feePayer0);
 
-    for (const item of toFetch) {
+    for (const item of earlyItems) {
       const sigStr = typeof item === 'string' ? item : item?.signature;
-      if (!sigStr) continue;
+      if (!sigStr || sigStr === genesisSig) continue;
+      let blockTime = item?.blockTime;
+      if (blockTime != null && genesisBlockTime > 0 && (blockTime < genesisBlockTime || blockTime > genesisBlockTime + 60)) continue;
       try {
         const tx = await heliusRpc('getTransaction', [sigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-        if (!tx?.transaction?.message) continue;
-        const msg = tx.transaction.message;
-        const accountKeys = msg.accountKeys || [];
-        const instructions = msg.instructions || [];
-
-        for (const ix of instructions) {
-          const program = (ix.programId && typeof ix.programId === 'string') ? ix.programId : null;
-          const programName = (ix.program === 'system' || program === '11111111111111111111111111111111') ? 'system' : (ix.program || null);
-          if (programName !== 'system' && ix.program !== 'system') continue;
-          let dest = null;
-          if (ix.parsed?.type === 'transfer' && ix.parsed?.info?.destination) dest = ix.parsed.info.destination;
-          if (!dest && Array.isArray(ix.accounts) && accountKeys[ix.accounts[1]]) {
-            const acc = accountKeys[ix.accounts[1]];
-            dest = typeof acc === 'object' && acc.pubkey ? acc.pubkey : (typeof acc === 'string' ? acc : null);
-          }
-          if (dest && dest !== creatorAddress) funded.add(dest);
-        }
-      } catch (e) { /* skip tx */ }
+        if (!tx?.transaction?.message?.accountKeys?.length) continue;
+        if (genesisBlockTime > 0 && tx.blockTime != null && (tx.blockTime < genesisBlockTime || tx.blockTime > genesisBlockTime + 60)) continue;
+        const k = tx.transaction.message.accountKeys[0];
+        const fp = (k && typeof k === 'object' && k.pubkey) ? k.pubkey : (typeof k === 'string' ? k : null);
+        if (fp) snipers.add(fp);
+      } catch (e) { /* skip */ }
     }
 
-    const uniqueFunded = funded.size;
-    if (uniqueFunded >= 4) return { label: `🔴 GENESIS BUNDLE: Dev funded ${uniqueFunded} wallets`, riskAdd: 50, flags: ['GENESIS_BUNDLE'] };
-    if (uniqueFunded >= 2) return { label: `🟡 SUSPICIOUS: Dev funded ${uniqueFunded} wallets`, riskAdd: 30, flags: ['DEV_FUNDING'] };
-    return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    const funderCounts = {};
+    const sniperList = Array.from(snipers).slice(0, 20);
+
+    for (const sniperAddr of sniperList) {
+      try {
+        const sniperSigs = await heliusRpc('getSignaturesForAddress', [sniperAddr, { limit: 10 }]);
+        const arr = Array.isArray(sniperSigs) ? sniperSigs : [];
+        if (arr.length === 0) continue;
+        const oldest = arr[arr.length - 1];
+        const oldestSig = typeof oldest === 'string' ? oldest : oldest?.signature;
+        if (!oldestSig) continue;
+        const fundTx = await heliusRpc('getTransaction', [oldestSig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+        if (!fundTx?.transaction?.message?.accountKeys?.length) continue;
+        const fk = fundTx.transaction.message.accountKeys[0];
+        const funder = (fk && typeof fk === 'object' && fk.pubkey) ? fk.pubkey : (typeof fk === 'string' ? fk : null);
+        if (!funder || funder === sniperAddr) continue;
+        let isCex = false;
+        for (const cex of KNOWN_CEX_ADDRESSES) {
+          if (typeof funder === 'string' && typeof cex === 'string' && (funder.includes(cex) || cex.includes(funder))) { isCex = true; break; }
+        }
+        if (isCex) continue;
+        funderCounts[funder] = (funderCounts[funder] || 0) + 1;
+      } catch (e) { /* skip */ }
+    }
+
+    const counts = Object.values(funderCounts).filter(c => c > 0);
+    const maxFunded = counts.length ? Math.max(...counts) : 0;
+
+    if (maxFunded >= 5) return { label: `🔴 BUNDLE RISK: HIGH — ${maxFunded} snipers funded from same wallet`, riskAdd: 50, flags: ['HIGH_BUNDLE'] };
+    if (maxFunded >= 3) return { label: `🟡 BUNDLE RISK: MEDIUM — ${maxFunded} snipers share funding`, riskAdd: 30, flags: ['MED_BUNDLE'] };
+    return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
   } catch (e) {
-    console.error('checkGenesisBundle error:', e.message);
-    return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    console.error('detectSniperBundle error:', e.message);
+    return { label: '⚠️ UNAVAILABLE (RPC Error)', riskAdd: 20, flags: [] };
   }
 }
 
@@ -509,15 +440,9 @@ async function processNewToken(ca, name, symbol) {
   meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
-  let holders = sd.top_holders || [];
-  if (!holders.length) holders = await fetchTopHoldersFromHelius(ca);
-  const bundleRisk = await analyzeBundleRisk(holders);
+  const bundleRisk = await detectSniperBundle(ca);
   risk += (bundleRisk.riskAdd || 0);
-  if (bundleRisk.label.includes('UNAVAILABLE')) {
-    flags.push('HOLDERS_HIDDEN');
-  } else if (bundleRisk.riskAdd > 0) {
-    flags.push('BUNDLE_RISK');
-  }
+  if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
   risk = Math.min(risk, 99);
 
   if (risk > 30 && risk < 50) {
@@ -577,23 +502,9 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
 
-    let holders = sd.top_holders || [];
-    if (!holders.length) holders = await fetchTopHoldersFromHelius(ca);
-
-    const bundleRisk = await analyzeBundleRisk(holders);
+    const bundleRisk = await detectSniperBundle(ca);
     risk += (bundleRisk.riskAdd || 0);
-    if (bundleRisk.label.includes('UNAVAILABLE')) {
-      flags.push('HOLDERS_HIDDEN');
-      try {
-        const genesisRisk = await checkGenesisBundle(ca);
-        risk += (genesisRisk.riskAdd || 0);
-        if (genesisRisk.flags && genesisRisk.flags.length) flags.push(...genesisRisk.flags);
-      } catch (e) {
-        console.error('checkGenesisBundle (scanOneSolanaToken):', e.message);
-      }
-    } else if (bundleRisk.riskAdd > 0) {
-      flags.push('BUNDLE_RISK');
-    }
+    if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
 
     const topHolders = sd.top_holders || [];
     const top10pct = topHolders.slice(0, 10)
@@ -771,6 +682,17 @@ app.get('/api/stats', async (req, res) => {
   });
 });
 
+app.get('/api/solana-bundle', async (req, res) => {
+  const ca = req.query.ca;
+  if (!ca) return res.json({ label: 'N/A' });
+  try {
+    const result = await detectSniperBundle(ca);
+    res.json({ label: result.label });
+  } catch (e) {
+    res.json({ label: '⚠️ UNAVAILABLE' });
+  }
+});
+
 function getTimeAgo(ts) {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60)   return `${diff}s ago`;
@@ -861,19 +783,12 @@ async function getAIAudit(sourceCode, sd = {}, bundleStatus = null, calculatedRi
     ? `Freezable: ${solFreezable}, Balance Mutable: ${solMutable}, Closable: ${solClosable}, Bundle Risk: ${bundleStatus != null ? bundleStatus : 'N/A'}`
     : `Honeypot: ${isHoneypot}, Mintable: ${isMintable}, Buy Tax: ${buyTax}%, Sell Tax: ${sellTax}%`;
 
-  const systemPrompt = `You are an elite crypto security auditor.
+  const systemPrompt = `You are an elite crypto auditor.
 CHAIN: ${chainContext}
 ON-CHAIN DATA: ${securityDataText}
-SYSTEM RISK SCORE: ${calculatedRisk}%
-YOUR JOB:
-The system has already calculated the strict Risk Score as ${calculatedRisk}%.
-DO NOT invent a new score. Your task is to provide a 1-2 sentence cynical, expert explanation of WHY this score makes sense based on the ON-CHAIN DATA.
-
-If the score is low but holders are hidden, warn them about the lack of transparency.
-
-If authorities are revoked (safe) but bundle risk is high, explain the danger of developer supply control.
-
-Format STRICTLY as: Risk: ${calculatedRisk}% | [Your expert explanation]`;
+STRICT INSTRUCTION:
+You MUST output EXACTLY: "Risk: ${calculatedRisk}% | [Your 1-2 sentence cynical explanation]".
+DO NOT change the ${calculatedRisk}% number. Explain WHY this score makes sense. Focus on Bundle Risk and Authority flags.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -926,27 +841,10 @@ async function runScanInChat(chatId, contractAddress) {
       if (data.code === 1 && data.result && key) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
-        let holders   = sd?.top_holders || [];
-        if (!holders.length) holders = await fetchTopHoldersFromHelius(contractAddress);
-        let top10str = 'N/A';
-        if (sd?.top_holders && sd.top_holders.length > 0) {
-          const top10pct = sd.top_holders.slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
-          if (top10pct > 0) top10str = Math.round(top10pct) + '%';
-        } else if (holders && holders.length > 0) {
-          top10str = '⚠️ Hidden (Fetched via RPC)';
-        }
-        const bundleRisk = await analyzeBundleRisk(holders);
-        let bundleLabel = bundleRisk.label;
-        let bundleRiskAdd = bundleRisk.riskAdd || 0;
-        if (bundleRisk.label.includes('UNAVAILABLE')) {
-          try {
-            const genesisRisk = await checkGenesisBundle(contractAddress);
-            bundleLabel = genesisRisk.label;
-            bundleRiskAdd += (genesisRisk.riskAdd || 0);
-          } catch (e) {
-            console.error('checkGenesisBundle (runScanInChat):', e.message);
-          }
-        }
+        const top10str = 'N/A (Hidden in Pool/Curve)';
+        const bundleRisk = await detectSniperBundle(contractAddress);
+        const bundleLabel = bundleRisk.label;
+        const bundleRiskAdd = bundleRisk.riskAdd || 0;
         const baseRisk = calcRisk(sd, 'SOL');
         const finalRisk = Math.min(99, baseRisk + bundleRiskAdd);
         const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleLabel, finalRisk);
