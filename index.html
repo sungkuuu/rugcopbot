@@ -6,7 +6,6 @@
 <title>RugCop — Scan Before You Ape</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://terminal.jup.ag/main-v4.js"></script>
 <style>
 :root{--bg:#080808;--bg2:#0f0f0f;--bg3:#141414;--card:#0c0c0c;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--red:#b83228;--red2:#d94535;--green:#1a9e50;--yellow:#c49a14;--text:#a8a8a8;--muted:#3a3a3a;--bright:#e2e2e2}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
@@ -347,17 +346,10 @@ let currentFilter='all';
 
 function buyJupiter(e,mint){
   e.stopPropagation();
-  if(typeof window.Jupiter!=='undefined'){
-    const outputMint=(mint||'').trim();
-    if(!outputMint)return;
-    window.Jupiter.init({
-      displayMode:'modal',
-      initialInputMint:'So11111111111111111111111111111111111111112',
-      initialOutputMint:outputMint,
-      strictTokenList:false,
-      containerStyles:{zIndex:1000}
-    });
-  }
+  const ca=(mint||'').trim();
+  if(!ca)return;
+  const url='https://jup.ag/swap/SOL-'+encodeURIComponent(ca)+'?referralAccount=DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV&feeBps=100';
+  window.open(url,'_blank');
 }
 
 function getEmoji(name,risk){
@@ -549,7 +541,7 @@ async function getScanResultHtml(ca){
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   const btnJupiter=isSolChain
-    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</button>`
+    ?`<a href="https://jup.ag/swap/SOL-${encodeURIComponent(ca_addr)}?referralAccount=DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV&feeBps=100" target="_blank" class="result-jupiter" onclick="event.stopPropagation()"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</a>`
     :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
@@ -648,20 +640,6 @@ async function openScanModal(ca){
     content.innerHTML='<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Scan failed. Try again.</div></div>';
   }
 }
-document.addEventListener('click',function(e){
-  const btn=e.target.closest('.result-jupiter:not(.disabled), .open-jupiter-btn');
-  if(!btn)return;
-  const outputMint=((btn.dataset && (btn.dataset.outputMint||btn.dataset.outputmint))||btn.getAttribute('data-output-mint')||'').trim();
-  if(!outputMint)return;
-  if(typeof window.Jupiter==='undefined')return;
-  window.Jupiter.init({
-    displayMode:'modal',
-    initialInputMint:'So11111111111111111111111111111111111111112',
-    initialOutputMint:outputMint,
-    strictTokenList:false,
-    containerStyles:{zIndex:1000}
-  });
-});
 
 loadFeed();loadStats();
 setInterval(loadFeed,120000);setInterval(loadStats,60000);
