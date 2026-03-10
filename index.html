@@ -350,6 +350,7 @@ function buyJupiter(e,mint){
   if(typeof window.Jupiter!=='undefined'){
     window.Jupiter.init({
       displayMode:'modal',
+      endpoint:'https://mainnet.helius-rpc.com/?api-key=6a1c6b7a-fdab-4527-957b-325e872ee76d',
       initialInputMint:'So11111111111111111111111111111111111111112',
       initialOutputMint:mint,
       containerStyles:{zIndex:1000}
@@ -652,6 +653,7 @@ document.addEventListener('click',function(e){
   if(typeof window.Jupiter==='undefined')return;
   window.Jupiter.init({
     displayMode:'modal',
+    endpoint:'https://mainnet.helius-rpc.com/?api-key=6a1c6b7a-fdab-4527-957b-325e872ee76d',
     initialInputMint:'So11111111111111111111111111111111111111112',
     initialOutputMint:outputMint,
     containerStyles:{zIndex:1000}
