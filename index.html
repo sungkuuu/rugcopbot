@@ -70,7 +70,7 @@ h1 .r{color:var(--red2)}
 .result-cta:hover{background:rgba(184,50,40,.08)}
 .result-cta.disabled{background:var(--muted);color:rgba(255,255,255,.3);border-color:var(--border);pointer-events:none;cursor:default}
 /* 🔥 [NEW] 사이버펑크 매수 버튼 디자인 🔥 */
-.tc-buy-btn, .tc-jupiter-btn, .result-actions a, .result-actions button {
+.tc-buy-btn, .result-actions a, .result-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,8 +91,7 @@ h1 .r{color:var(--red2)}
   overflow: hidden;
   white-space: nowrap;
 }
-.tc-buy-btn, .result-actions a.snipe-btn, .result-actions a.result-buy,
-.tc-jupiter-btn, .result-actions button.buy-btn, .result-actions button.result-jupiter {
+.tc-buy-btn, .result-actions a.snipe-btn, .result-actions a.result-buy {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.1);
   color: #fff;
@@ -105,7 +104,7 @@ h1 .r{color:var(--red2)}
 }
 .result-jupiter.disabled, .result-buy.disabled { background: var(--muted); color: rgba(255,255,255,.3); border-color: var(--border); pointer-events: none; cursor: default; }
 /* 버튼 내 아이콘 크기 조정 */
-.tc-buy-btn img, .tc-jupiter-btn img, .result-actions .btn-icon img {
+.tc-buy-btn img, .result-actions .btn-icon img {
   width: 16px; height: 16px; border-radius: 50%; object-fit: cover;
 }
 .result-actions .btn-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -427,10 +426,7 @@ function buildCard(t){
   const caJupiter=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const cardFooter=isSolChain?`
   <div class="tc-footer" onclick="event.stopPropagation()">
-    <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.1); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
-    <button type="button" class="tc-btn tc-jupiter-btn" style="background:var(--red); border-color:var(--red2); color:white; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="buyJupiter(event, '${caJupiter}')">
-      <img src="https://jup.ag/favicon.ico" style="width:14px;height:14px;border-radius:50%;" alt=""> BUY
-    </button>
+    <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="flex:1;width:100%;background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.12); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
   </div>
 `:'';
   return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
@@ -547,9 +543,6 @@ async function getScanResultHtml(ca){
   const btnBanana=isSolChain
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
-  const btnJupiter=isSolChain
-    ?`<button type="button" class="result-jupiter" data-output-mint="${ca_addr.replace(/"/g,'&quot;')}"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Buy Safely Here</button>`
-    :`<span class="result-jupiter disabled"><span class="btn-icon"><img src="https://jup.ag/favicon.ico" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">⚡️</span></span> Jupiter</span>`;
   let logoUrl=null;
   try{
     const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
@@ -561,7 +554,7 @@ async function getScanResultHtml(ca){
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
-    <div class="result-actions">${btnBanana}${btnJupiter}</div>
+    <div class="result-actions">${btnBanana}</div>
   </div>`;
 }
 
