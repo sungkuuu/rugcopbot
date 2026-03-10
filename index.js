@@ -445,6 +445,17 @@ async function processNewToken(ca, name, symbol) {
   meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
+  let holders = sd.top_holders || [];
+  if (!holders.length) holders = await fetchTopHoldersFromHelius(ca);
+  const bundleRisk = await analyzeBundleRisk(holders);
+  risk += (bundleRisk.riskAdd || 0);
+  if (bundleRisk.label.includes('UNAVAILABLE')) {
+    flags.push('HOLDERS_HIDDEN');
+  } else if (bundleRisk.riskAdd > 0) {
+    flags.push('BUNDLE_RISK');
+  }
+  risk = Math.min(risk, 99);
+
   if (risk > 30 && risk < 50) {
     console.log(`⏭️ ${symbol} - Mid risk (${risk}%), skipping`);
     return;
@@ -502,6 +513,17 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
 
+    let holders = sd.top_holders || [];
+    if (!holders.length) holders = await fetchTopHoldersFromHelius(ca);
+
+    const bundleRisk = await analyzeBundleRisk(holders);
+    risk += (bundleRisk.riskAdd || 0);
+    if (bundleRisk.label.includes('UNAVAILABLE')) {
+      flags.push('HOLDERS_HIDDEN');
+    } else if (bundleRisk.riskAdd > 0) {
+      flags.push('BUNDLE_RISK');
+    }
+
     const topHolders = sd.top_holders || [];
     const top10pct = topHolders.slice(0, 10)
       .reduce((s, h) => s + parseFloat(h.percent || 0), 0);
@@ -516,6 +538,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     }
 
     if (risk < 10) risk = 10;
+    risk = Math.min(risk, 99);
 
     const meta = sd.metadata || {};
     let name = meta.name || tokenMeta.name || tokenMeta.description;
