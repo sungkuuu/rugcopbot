@@ -7,27 +7,6 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://terminal.jup.ag/main-v4.js"></script>
-<script type="module">
-  // Derive fee recipient ATA for Jupiter (output token) using your fee wallet
-  import { PublicKey } from 'https://esm.sh/@solana/web3.js@1.95.3';
-  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-  const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-  const FEE_WALLET = new PublicKey('FkyEvDJtcDVg7bHht5zkyb4TDkLbDGb2mAioWZdpcB2c');
-
-  function getAssociatedTokenAddressSync(mintPk, ownerPk) {
-    const [ata] = PublicKey.findProgramAddressSync(
-      [ownerPk.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPk.toBuffer()],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    return ata;
-  }
-
-  window.getFeeAtaForMint = function (outputMint) {
-    const mint = new PublicKey(outputMint);
-    const ata = getAssociatedTokenAddressSync(mint, FEE_WALLET);
-    return ata.toBase58();
-  };
-</script>
 <style>
 :root{--bg:#080808;--bg2:#0f0f0f;--bg3:#141414;--card:#0c0c0c;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--red:#b83228;--red2:#d94535;--green:#1a9e50;--yellow:#c49a14;--text:#a8a8a8;--muted:#3a3a3a;--bright:#e2e2e2}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
@@ -369,16 +348,12 @@ let currentFilter='all';
 function buyJupiter(e,mint){
   e.stopPropagation();
   if(typeof window.Jupiter!=='undefined'){
-    var feeAccount = (typeof window.getFeeAtaForMint==='function') ? window.getFeeAtaForMint(mint) : null;
-    if(!feeAccount){ alert('Loading fee config… try again in a moment.'); return; }
     window.Jupiter.init({
       displayMode:'modal',
       initialInputMint:'So11111111111111111111111111111111111111112',
       initialOutputMint:mint,
-      platformFeeAndAccounts:{
-        feeBps:100,
-        feeAccounts:new Map([[mint,feeAccount]])
-      },
+      feeBps:69,
+      feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
       containerStyles:{zIndex:1000}
     });
   }
@@ -677,18 +652,13 @@ document.addEventListener('click',function(e){
   if(!btn||!btn.dataset.outputMint)return;
   const outputMint=btn.dataset.outputMint;
   if(typeof window.Jupiter==='undefined')return;
-  var feeAccount=(typeof window.getFeeAtaForMint==='function')?window.getFeeAtaForMint(outputMint):null;
-  if(!feeAccount){ alert('Loading fee config… try again in a moment.'); return; }
-  const SOL_MINT='So11111111111111111111111111111111111111112';
   window.Jupiter.init({
     displayMode:'modal',
-    initialInputMint:SOL_MINT,
+    initialInputMint:'So11111111111111111111111111111111111111112',
     initialOutputMint:outputMint,
-    platformFeeAndAccounts:{
-      feeBps:100,
-      feeAccounts:new Map([[outputMint,feeAccount]])
-    },
-    containerStyles:{ zIndex: 1000 }
+    feeBps:69,
+    feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+    containerStyles:{zIndex:1000}
   });
 });
 
