@@ -348,10 +348,12 @@ let currentFilter='all';
 function buyJupiter(e,mint){
   e.stopPropagation();
   if(typeof window.Jupiter!=='undefined'){
+    const outputMint=(mint||'').trim();
+    if(!outputMint)return;
     window.Jupiter.init({
       displayMode:'modal',
       initialInputMint:'So11111111111111111111111111111111111111112',
-      initialOutputMint:mint,
+      initialOutputMint:outputMint,
       containerStyles:{zIndex:1000}
     });
   }
@@ -647,8 +649,9 @@ async function openScanModal(ca){
 }
 document.addEventListener('click',function(e){
   const btn=e.target.closest('.result-jupiter:not(.disabled), .open-jupiter-btn');
-  if(!btn||!btn.dataset.outputMint)return;
-  const outputMint=btn.dataset.outputMint;
+  if(!btn)return;
+  const outputMint=((btn.dataset && (btn.dataset.outputMint||btn.dataset.outputmint))||btn.getAttribute('data-output-mint')||'').trim();
+  if(!outputMint)return;
   if(typeof window.Jupiter==='undefined')return;
   window.Jupiter.init({
     displayMode:'modal',
