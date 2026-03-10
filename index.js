@@ -308,12 +308,25 @@ async function heliusRpc(method, params) {
 
 /**
  * Fetch top 10 token holders via Helius getTokenLargestAccounts (fallback when GoPlus returns none).
- * Returns array of { address } for use with analyzeBundleRisk.
+ * Returns array of { address, token_account } for use with analyzeBundleRisk (ATAs).
  */
 async function fetchTopHoldersFromHelius(mintAddress) {
-  if (!mintAddress || !HELIUS_API_KEY) return [];
+  if (!mintAddress) return [];
+  const apiKey = process.env.HELIUS_API_KEY;
+  if (!apiKey) return [];
   try {
-    const raw = await heliusRpc('getTokenLargestAccounts', [mintAddress]);
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getTokenLargestAccounts',
+        params: [mintAddress]
+      })
+    });
+    const data = await res.json();
+    const raw = data.result;
     const list = Array.isArray(raw) ? raw : (raw?.value || []);
     return list.slice(0, 10).map(item => ({
       address: item.address || item.token_account,
@@ -332,7 +345,7 @@ async function analyzeBundleRisk(holders) {
   const addresses = list
     .map(h => h.address || h.owner_address || h.token_account)
     .filter(Boolean);
-  if (addresses.length === 0) return { label: '⚠️ BUNDLE SCAN UNAVAILABLE (Holders hidden)', riskAdd: 0 };
+  if (addresses.length === 0) return { label: '⚠️ UNAVAILABLE (Holders Hidden)', riskAdd: 20 };
 
   const SIG_LIMIT = 50;
   const fundingBySource = {};
