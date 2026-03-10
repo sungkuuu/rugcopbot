@@ -690,10 +690,9 @@ Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
 
 console.log("🚨 RUGCOP RADAR is online. (Ethereum + Solana)");
 
-bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const contractAddress = match[2].replace(/\s+/g, '');
+const SOLANA_CA_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
+async function runScanInChat(chatId, contractAddress) {
   const waitMsg = await bot.sendMessage(chatId,
     `🚨 RUGCOP RADAR ACTIVATED 🚨\n🎯 Target Locked: <code>${contractAddress}</code>\n\n🐶 Sniffing the contract...\nHold tight, pulling on-chain data... ⏳`,
     { parse_mode: 'HTML' }
@@ -767,5 +766,19 @@ bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
     await bot.editMessageText(`🚨 SYSTEM FAILURE: ${error.message}`, {
       chat_id: chatId, message_id: waitMsg.message_id
     });
+  }
+}
+
+bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const contractAddress = match[2].replace(/\s+/g, '');
+  await runScanInChat(chatId, contractAddress);
+});
+
+bot.on('message', async (msg) => {
+  const text = (msg.text || '').trim();
+  if (!text || text.startsWith('/')) return;
+  if (SOLANA_CA_REGEX.test(text)) {
+    await runScanInChat(msg.chat.id, text);
   }
 });
