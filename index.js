@@ -353,7 +353,7 @@ async function analyzeBundleRisk(holders) {
   const addresses = list
     .map(h => h.address || h.owner_address || h.token_account)
     .filter(Boolean);
-  if (addresses.length === 0) return { label: '⚠️ UNAVAILABLE (Holders Hidden)', riskAdd: 20 };
+  if (addresses.length === 0) return { label: '⏳ Pool/Curve (Holders N/A)', riskAdd: 0 };
 
   const SIG_LIMIT = 50;
   const fundingBySource = {};
@@ -845,7 +845,7 @@ async function getContractSourceCode(contractAddress) {
   } catch(e) { return ''; }
 }
 
-async function getAIAudit(sourceCode, sd = {}, bundleStatus = null) {
+async function getAIAudit(sourceCode, sd = {}, bundleStatus = null, calculatedRisk = 0) {
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
   const isSolana    = sourceCode === 'SOLANA_TOKEN';
   const snippet     = isSolana ? "No smart contract code available. Rely ONLY on the provided API flags." : (sourceCode || '').slice(0, 3000);
@@ -861,17 +861,19 @@ async function getAIAudit(sourceCode, sd = {}, bundleStatus = null) {
     ? `Freezable: ${solFreezable}, Balance Mutable: ${solMutable}, Closable: ${solClosable}, Bundle Risk: ${bundleStatus != null ? bundleStatus : 'N/A'}`
     : `Honeypot: ${isHoneypot}, Mintable: ${isMintable}, Buy Tax: ${buyTax}%, Sell Tax: ${sellTax}%`;
 
-  const bundleRule = isSolana && bundleStatus && String(bundleStatus).toUpperCase().includes('HIGH')
-    ? "\nIF Bundle Risk is HIGH, state that dev is likely holding a massive hidden supply via multiple ghost wallets and strongly advise against aping."
-    : "";
-  const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls.
+  const systemPrompt = `You are an elite crypto security auditor.
 CHAIN: ${chainContext}
-CRITICAL ON-CHAIN DATA: ${securityDataText}
-STRICT RULES:
-IF CHAIN IS EVM: If 'Mintable' is YES, increase Risk Score to at least 80%.
-IF CHAIN IS SOLANA: If ANY of Freezable, Balance Mutable, or Closable is YES, Risk Score at least 80%.
-IF CHAIN IS SOLANA AND ALL flags are NO: Risk Score around 10-20%, state "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."${bundleRule}
-Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
+ON-CHAIN DATA: ${securityDataText}
+SYSTEM RISK SCORE: ${calculatedRisk}%
+YOUR JOB:
+The system has already calculated the strict Risk Score as ${calculatedRisk}%.
+DO NOT invent a new score. Your task is to provide a 1-2 sentence cynical, expert explanation of WHY this score makes sense based on the ON-CHAIN DATA.
+
+If the score is low but holders are hidden, warn them about the lack of transparency.
+
+If authorities are revoked (safe) but bundle risk is high, explain the danger of developer supply control.
+
+Format STRICTLY as: Risk: ${calculatedRisk}% | [Your expert explanation]`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -945,9 +947,9 @@ async function runScanInChat(chatId, contractAddress) {
             console.error('checkGenesisBundle (runScanInChat):', e.message);
           }
         }
-        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleLabel);
         const baseRisk = calcRisk(sd, 'SOL');
         const finalRisk = Math.min(99, baseRisk + bundleRiskAdd);
+        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleLabel, finalRisk);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
           `⛓️ <b>Chain:</b> Solana\n` +
