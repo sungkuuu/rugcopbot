@@ -75,7 +75,7 @@ h1 .r{color:var(--red2)}
 .risk-mid{background:rgba(196,154,20,.1);color:#c49a14;border-color:rgba(196,154,20,.3)}
 .risk-low{background:rgba(26,158,80,.1);color:#1a9e50;border-color:rgba(26,158,80,.3)}
 .result-flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:14px}
-.rflag{background:var(--bg3);border:1px solid var(--border);padding:10px}
+.rflag{background:var(--bg3);border:1px solid var(--border);padding:10px;min-width:0;overflow:hidden}
 .rflag-key{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:3px}
 .rflag-val{font-size:1.15rem;font-weight:500;line-height:1.2;display:block}
 .val-danger{color:#d94535}.val-safe{color:#1a9e50}.val-warn{color:#c49a14}
@@ -569,14 +569,24 @@ async function getScanResultHtml(ca){
         }
       }
     }catch(e){}
-    let shortBundle=bundleLabel;
-    if(shortBundle.includes('NO OBVIOUS'))shortBundle='✅ CLEAN';
-    else if(shortBundle.includes('HIGH'))shortBundle='🔴 HIGH';
-    else if(shortBundle.includes('MEDIUM'))shortBundle='🟡 MED';
-    else if(shortBundle.includes('UNAVAILABLE'))shortBundle='⚠️ N/A';
+    const rawBundleLabel=bundleLabel;
+    let compressedBundleLabel=rawBundleLabel;
+    const detailedMsg=rawBundleLabel;
+    if(/HIGH|🔴/i.test(rawBundleLabel)){
+      bundleClass='val-danger';
+      const sniperMatch=rawBundleLabel.match(/(\d+)\s*snipers?/i);
+      compressedBundleLabel=sniperMatch?`🔴 HIGH (${sniperMatch[1]})`:'🔴 HIGH';
+    }else if(/MEDIUM|🟡/i.test(rawBundleLabel)){
+      bundleClass='val-warn';
+      compressedBundleLabel='🟡 MED RISK';
+    }else if(/NO OBVIOUS|✅/i.test(rawBundleLabel)){
+      compressedBundleLabel='✅ CLEAN';
+    }else if(/UNAVAILABLE|Volume too high|N\/A/i.test(rawBundleLabel)){
+      compressedBundleLabel='⚠️ N/A';
+    }
     risk=Math.min(99,risk+bundleRiskAdd);
     rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:shortBundle,c:bundleClass}];
+    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:compressedBundleLabel,c:bundleClass,title:detailedMsg}];
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
   const isSolChain=chain==='SOL';
@@ -592,7 +602,7 @@ async function getScanResultHtml(ca){
   const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
   return`<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
-    <div class="result-flags">${flags.map(f=>`<div class="rflag"><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    <div class="result-flags">${flags.map(f=>`<div class="rflag"${f.title!=null?` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
   </div>`;
