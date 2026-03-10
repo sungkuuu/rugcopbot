@@ -392,6 +392,70 @@ async function analyzeBundleRisk(holders) {
   return { label: '✅ NO BUNDLE DETECTED', riskAdd: 0 };
 }
 
+/**
+ * Genesis Bundle Tracker: when holders are hidden (e.g. in pool), check if token creator
+ * funded multiple wallets before/during launch. Uses genesis tx to find creator, then traces
+ * creator's SOL transfers to count unique funded addresses.
+ * Returns { label, riskAdd, flags }.
+ */
+async function checkGenesisBundle(ca) {
+  if (!ca || !HELIUS_API_KEY) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+  try {
+    const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 100 }]);
+    const list = Array.isArray(sigs) ? sigs : [];
+    if (list.length === 0) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+
+    const genesisSig = list[list.length - 1];
+    const genesisSigStr = typeof genesisSig === 'string' ? genesisSig : genesisSig?.signature;
+    if (!genesisSigStr) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+
+    const genesisTx = await heliusRpc('getTransaction', [genesisSigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+    if (!genesisTx?.transaction?.message?.accountKeys?.length) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+
+    const keys = genesisTx.transaction.message.accountKeys;
+    const creatorAddress = (keys[0] && typeof keys[0] === 'object' && keys[0].pubkey) ? keys[0].pubkey : (typeof keys[0] === 'string' ? keys[0] : null);
+    if (!creatorAddress) return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+
+    const creatorSigs = await heliusRpc('getSignaturesForAddress', [creatorAddress, { limit: 50 }]);
+    const creatorList = Array.isArray(creatorSigs) ? creatorSigs : [];
+    const toFetch = creatorList.slice(0, 10);
+    const funded = new Set();
+
+    for (const item of toFetch) {
+      const sigStr = typeof item === 'string' ? item : item?.signature;
+      if (!sigStr) continue;
+      try {
+        const tx = await heliusRpc('getTransaction', [sigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+        if (!tx?.transaction?.message) continue;
+        const msg = tx.transaction.message;
+        const accountKeys = msg.accountKeys || [];
+        const instructions = msg.instructions || [];
+
+        for (const ix of instructions) {
+          const program = (ix.programId && typeof ix.programId === 'string') ? ix.programId : null;
+          const programName = (ix.program === 'system' || program === '11111111111111111111111111111111') ? 'system' : (ix.program || null);
+          if (programName !== 'system' && ix.program !== 'system') continue;
+          let dest = null;
+          if (ix.parsed?.type === 'transfer' && ix.parsed?.info?.destination) dest = ix.parsed.info.destination;
+          if (!dest && Array.isArray(ix.accounts) && accountKeys[ix.accounts[1]]) {
+            const acc = accountKeys[ix.accounts[1]];
+            dest = typeof acc === 'object' && acc.pubkey ? acc.pubkey : (typeof acc === 'string' ? acc : null);
+          }
+          if (dest && dest !== creatorAddress) funded.add(dest);
+        }
+      } catch (e) { /* skip tx */ }
+    }
+
+    const uniqueFunded = funded.size;
+    if (uniqueFunded >= 4) return { label: `🔴 GENESIS BUNDLE: Dev funded ${uniqueFunded} wallets`, riskAdd: 50, flags: ['GENESIS_BUNDLE'] };
+    if (uniqueFunded >= 2) return { label: `🟡 SUSPICIOUS: Dev funded ${uniqueFunded} wallets`, riskAdd: 30, flags: ['DEV_FUNDING'] };
+    return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+  } catch (e) {
+    console.error('checkGenesisBundle error:', e.message);
+    return { label: '✅ NO GENESIS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+  }
+}
+
 async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
@@ -520,6 +584,13 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     risk += (bundleRisk.riskAdd || 0);
     if (bundleRisk.label.includes('UNAVAILABLE')) {
       flags.push('HOLDERS_HIDDEN');
+      try {
+        const genesisRisk = await checkGenesisBundle(ca);
+        risk += (genesisRisk.riskAdd || 0);
+        if (genesisRisk.flags && genesisRisk.flags.length) flags.push(...genesisRisk.flags);
+      } catch (e) {
+        console.error('checkGenesisBundle (scanOneSolanaToken):', e.message);
+      }
     } else if (bundleRisk.riskAdd > 0) {
       flags.push('BUNDLE_RISK');
     }
@@ -863,9 +934,20 @@ async function runScanInChat(chatId, contractAddress) {
           top10str = '⚠️ Hidden (Fetched via RPC)';
         }
         const bundleRisk = await analyzeBundleRisk(holders);
-        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleRisk.label);
+        let bundleLabel = bundleRisk.label;
+        let bundleRiskAdd = bundleRisk.riskAdd || 0;
+        if (bundleRisk.label.includes('UNAVAILABLE')) {
+          try {
+            const genesisRisk = await checkGenesisBundle(contractAddress);
+            bundleLabel = genesisRisk.label;
+            bundleRiskAdd += (genesisRisk.riskAdd || 0);
+          } catch (e) {
+            console.error('checkGenesisBundle (runScanInChat):', e.message);
+          }
+        }
+        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleLabel);
         const baseRisk = calcRisk(sd, 'SOL');
-        const finalRisk = Math.min(99, baseRisk + (bundleRisk.riskAdd || 0));
+        const finalRisk = Math.min(99, baseRisk + bundleRiskAdd);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
           `⛓️ <b>Chain:</b> Solana\n` +
@@ -876,7 +958,7 @@ async function runScanInChat(chatId, contractAddress) {
           `🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
-          `🔗 <b>Bundle Scan:</b> ${bundleRisk.label}\n\n` +
+          `🔗 <b>Bundle Scan:</b> ${bundleLabel}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       } else {
