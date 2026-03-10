@@ -6,7 +6,7 @@
 <title>RugCop — Scan Before You Ape</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://terminal.jup.ag/main-v3.js"></script>
+<script src="https://terminal.jup.ag/main-v4.js"></script>
 <style>
 :root{--bg:#080808;--bg2:#0f0f0f;--bg3:#141414;--card:#0c0c0c;--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--red:#b83228;--red2:#d94535;--green:#1a9e50;--yellow:#c49a14;--text:#a8a8a8;--muted:#3a3a3a;--bright:#e2e2e2}
 *{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
@@ -350,7 +350,6 @@ function buyJupiter(e,mint){
   if(typeof window.Jupiter!=='undefined'){
     window.Jupiter.init({
       displayMode:'modal',
-      endpoint:'https://mainnet.helius-rpc.com/?api-key=6a1c6b7a-fdab-4527-957b-325e872ee76d',
       initialInputMint:'So11111111111111111111111111111111111111112',
       initialOutputMint:mint,
       containerStyles:{zIndex:1000}
@@ -653,7 +652,6 @@ document.addEventListener('click',function(e){
   if(typeof window.Jupiter==='undefined')return;
   window.Jupiter.init({
     displayMode:'modal',
-    endpoint:'https://mainnet.helius-rpc.com/?api-key=6a1c6b7a-fdab-4527-957b-325e872ee76d',
     initialInputMint:'So11111111111111111111111111111111111111112',
     initialOutputMint:outputMint,
     containerStyles:{zIndex:1000}
