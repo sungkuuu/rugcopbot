@@ -35,6 +35,19 @@ h1 .r{color:var(--red2)}
 .hero-sub strong{color:var(--text)}
 
 .scan-bar{max-width:600px;margin:0 auto 12px;display:flex;gap:0}
+.scan-bar-wrap{position:relative;max-width:600px;margin:0 auto 12px}
+.scan-bar-wrap .scan-bar{margin:0}
+.ticker-dropdown{display:none;position:absolute;left:0;right:0;top:100%;margin-top:2px;background:var(--bg2);border:1px solid var(--border2);border-radius:0;max-height:280px;overflow-y:auto;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ticker-dropdown.show{display:block}
+.ticker-dropdown-item{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;transition:background .15s}
+.ticker-dropdown-item:hover{background:var(--bg3)}
+.ticker-dropdown-item:last-child{border-bottom:none}
+.ticker-dropdown-item .ticker-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--bright)}
+.ticker-dropdown-item .ticker-sym{font-size:9px;color:var(--muted);margin-left:6px}
+.ticker-dropdown-item .ticker-chain{font-size:8px;padding:2px 6px;background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.ticker-dropdown-item .ticker-mcap{font-size:9px;color:var(--green)}
+.ticker-dropdown-empty{padding:14px 16px;font-size:9px;color:var(--muted);text-align:center}
+.ticker-dropdown-loading{padding:14px 16px;font-size:9px;color:var(--muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px}
 .chain-select{background:var(--bg2);border:1px solid var(--border2);border-right:none;padding:13px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:center}
 .chain-select:focus{border-color:var(--red)}
 .scan-input{flex:1;background:var(--bg2);border:1px solid var(--border2);padding:13px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
@@ -253,15 +266,18 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
   <div class="hero-eye">On-Chain Token Security</div>
   <h1>SCAN<br>BEFORE<br>YOU <span class="r">APE.</span></h1>
   <p class="hero-sub">Paste any <strong>ETH or SOL</strong> contract. Instant risk score, dev wallet history — snipe or skip in seconds.</p>
-  <div class="scan-bar">
-    <select class="chain-select" id="chainSelect">
-      <option value="auto">AUTO</option>
-      <option value="eth">ETH</option>
-      <option value="base">BASE</option>
-      <option value="sol">SOL</option>
-    </select>
-    <input class="scan-input" id="caInput" placeholder="0x... or Solana CA" autocomplete="off"/>
-    <button class="scan-btn" onclick="runScan()">SCAN →</button>
+  <div class="scan-bar-wrap">
+    <div class="scan-bar">
+      <select class="chain-select" id="chainSelect">
+        <option value="auto">AUTO</option>
+        <option value="eth">ETH</option>
+        <option value="base">BASE</option>
+        <option value="sol">SOL</option>
+      </select>
+      <input class="scan-input" id="caInput" placeholder="0x... or Solana CA or ticker (e.g. PEPE)" autocomplete="off"/>
+      <button class="scan-btn" onclick="runScan()">SCAN →</button>
+    </div>
+    <div class="ticker-dropdown" id="tickerDropdown" role="listbox"></div>
   </div>
   <div class="scan-result">
     <div class="result-box" id="resultBox"></div>
@@ -569,6 +585,107 @@ async function doScan(ca){
 
 function runScan(){const ca=document.getElementById('caInput').value.trim();if(ca)doScan(ca);}
 document.getElementById('caInput').addEventListener('keydown',e=>{if(e.key==='Enter')runScan();});
+
+(function(){
+  var tickerDebounce=null;
+  var lastTickerQuery='';
+  var tickerAbort=null;
+  var caInput=document.getElementById('caInput');
+  var tickerDropdown=document.getElementById('tickerDropdown');
+  var isEVM=/^0x[a-fA-F0-9]{40}$/;
+  var isSol=/^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+  function closeTickerDropdown(){
+    tickerDropdown.classList.remove('show');
+    tickerDropdown.innerHTML='';
+  }
+
+  function formatMcap(v){
+    if(v==null||v===undefined)return'—';
+    var n=Number(v);
+    if(!isFinite(n)||n===0)return'—';
+    if(n>=1e9)return'$'+(n/1e9).toFixed(2)+'B';
+    if(n>=1e6)return'$'+(n/1e6).toFixed(2)+'M';
+    if(n>=1e3)return'$'+(n/1e3).toFixed(2)+'K';
+    return'$'+n.toFixed(0);
+  }
+
+  function chainLabel(chainId){
+    if(!chainId)return'—';
+    var s=String(chainId).toLowerCase();
+    if(s==='solana')return'SOL';
+    if(s==='ethereum')return'ETH';
+    if(s==='base')return'BASE';
+    return s.slice(0,3).toUpperCase();
+  }
+
+  caInput.addEventListener('input',function(){
+    var raw=(caInput.value||'').trim();
+    if(tickerDebounce)clearTimeout(tickerDebounce);
+    if(raw.length===0){ closeTickerDropdown(); return; }
+    if(isEVM.test(raw)||isSol.test(raw)){ closeTickerDropdown(); return; }
+    var keyword=raw.replace(/^\$+/,'').trim();
+    if(keyword.length<2){ closeTickerDropdown(); return; }
+    lastTickerQuery=keyword;
+    tickerDropdown.innerHTML='<div class="ticker-dropdown-loading"><span class="spin"></span> Searching...</div>';
+    tickerDropdown.classList.add('show');
+    if(tickerAbort)tickerAbort.abort();
+    tickerAbort=new AbortController();
+    tickerDebounce=setTimeout(function(){
+      fetch('https://api.dexscreener.com/latest/dex/search?q='+encodeURIComponent(keyword),{signal:tickerAbort.signal})
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(lastTickerQuery!==keyword)return;
+          var pairs=Array.isArray(data.pairs)?data.pairs:[];
+          var seen={};
+          var list=[];
+          for(var i=0;i<pairs.length&&list.length<10;i++){
+            var p=pairs[i];
+            var base=p.baseToken||{};
+            var addr=base.address;
+            if(!addr||seen[addr])continue;
+            seen[addr]=true;
+            list.push({
+              address:addr,
+              name:base.name||'—',
+              symbol:base.symbol||'—',
+              chainId:p.chainId||'',
+              marketCap:p.marketCap!=null?p.marketCap:(p.fdv||null)
+            });
+          }
+          tickerDropdown.innerHTML='';
+          if(list.length===0){
+            tickerDropdown.innerHTML='<div class="ticker-dropdown-empty">No tokens found</div>';
+            return;
+          }
+          list.forEach(function(item){
+            var el=document.createElement('div');
+            el.className='ticker-dropdown-item';
+            el.setAttribute('role','option');
+            el.innerHTML='<span><span class="ticker-name">'+String(item.name).replace(/</g,'&lt;')+'</span><span class="ticker-sym">'+String(item.symbol).replace(/</g,'&lt;')+'</span></span><span style="display:flex;align-items:center;gap:8px"><span class="ticker-chain">'+chainLabel(item.chainId)+'</span><span class="ticker-mcap">'+formatMcap(item.marketCap)+'</span></span>';
+            el.addEventListener('click',function(){
+              caInput.value=item.address;
+              closeTickerDropdown();
+              runScan();
+            });
+            tickerDropdown.appendChild(el);
+          });
+        })
+        .catch(function(err){
+          if(err.name==='AbortError')return;
+          if(lastTickerQuery===keyword){
+            tickerDropdown.innerHTML='<div class="ticker-dropdown-empty">Search failed</div>';
+          }
+        });
+    },320);
+  });
+
+  document.addEventListener('click',function(e){
+    if(!caInput.contains(e.target)&&!tickerDropdown.contains(e.target)){
+      closeTickerDropdown();
+    }
+  });
+})();
 
 function closeScanModal(){
   document.getElementById('scanModalOverlay').classList.remove('show');
