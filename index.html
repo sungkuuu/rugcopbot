@@ -74,7 +74,7 @@ h1 .r{color:var(--red2)}
 .risk-high{background:rgba(184,50,40,.1);color:#d94535;border-color:rgba(184,50,40,.3)}
 .risk-mid{background:rgba(196,154,20,.1);color:#c49a14;border-color:rgba(196,154,20,.3)}
 .risk-low{background:rgba(26,158,80,.1);color:#1a9e50;border-color:rgba(26,158,80,.3)}
-.result-flags{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.result-flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:14px}
 .rflag{background:var(--bg3);border:1px solid var(--border);padding:10px}
 .rflag-key{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:3px}
 .rflag-val{font-size:1.15rem;font-weight:500}
@@ -554,8 +554,24 @@ async function getScanResultHtml(ca){
     const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
     const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
     if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
-    risk=Math.min(risk,99);rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'}];
+    let bundleLabel='—',bundleClass='val-safe',bundleRiskAdd=0;
+    try{
+      const apiBase='https://rugcopbot-production.up.railway.app';
+      const bundleRes=await fetch(apiBase+'/api/solana-bundle?ca='+encodeURIComponent(ca));
+      if(bundleRes.ok){
+        const b=await bundleRes.json();
+        const lbl=(b.label||b.bundleLabel||b.bundle?.label||'').trim();
+        if(lbl){
+          bundleLabel=lbl;
+          if(/HIGH|🔴/i.test(lbl)){bundleClass='val-danger';bundleRiskAdd=50;}
+          else if(/MEDIUM|🟡/i.test(lbl)){bundleClass='val-warn';bundleRiskAdd=30;}
+          else bundleClass='val-safe';
+        }
+      }
+    }catch(e){}
+    risk=Math.min(99,risk+bundleRiskAdd);
+    rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
+    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:bundleLabel,c:bundleClass}];
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
   const isSolChain=chain==='SOL';
@@ -719,6 +735,12 @@ function openCardModal(ca) {
   const vol = t.volume24h ? '$' + Number(t.volume24h).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
   const mcap = (t.marketCap || t.market_cap) ? '$' + Number(t.marketCap || t.market_cap).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
   const riskColor = t.risk >= 70 ? '#d94535' : t.risk <= 30 ? '#1a9e50' : '#c49a14';
+  const fl = t.flags || [];
+  let bundleStatus = 'N/A';
+  let bundleColor = '#1a9e50';
+  if (fl.includes('BUNDLE_HIGH')) { bundleStatus = 'HIGH'; bundleColor = '#d94535'; }
+  else if (fl.includes('BUNDLE_MEDIUM')) { bundleStatus = 'MEDIUM'; bundleColor = '#c49a14'; }
+  else if (fl.includes('BUNDLE_LOW') || fl.includes('NO_BUNDLE')) { bundleStatus = fl.includes('BUNDLE_LOW') ? 'LOW' : 'NO'; bundleColor = '#1a9e50'; }
 
   content.innerHTML = `
     <div style="padding: 24px; font-family: 'IBM Plex Mono', monospace; color: var(--text); font-size: 14px; line-height: 2;">
@@ -742,6 +764,8 @@ function openCardModal(ca) {
       <div style="margin-bottom: 16px;">
         👥 Top 10 Holders: <span style="color:var(--bright)">${top10}</span>
       </div>
+
+      <div style="margin-bottom: 16px;">🔗 Bundle Risk: <span style="color:${bundleColor}">${bundleStatus}</span></div>
 
       <div style="margin-bottom: 24px;">
         <div>💰 Vol 24h: <span style="color:var(--green)">${vol}</span></div>
