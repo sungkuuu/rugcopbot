@@ -293,6 +293,67 @@ async function getTokenMeta(ca) {
   } catch(e) { return { name: 'Unknown', symbol: '???' }; }
 }
 
+async function heliusRpc(method, params) {
+  if (!HELIUS_API_KEY) return null;
+  try {
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    });
+    const data = await res.json();
+    return data.result;
+  } catch(e) { return null; }
+}
+
+/**
+ * Ultra-fast Bundle Risk from top 10 holders: Ghost Wallet + Funding Source overlap.
+ * Returns { label, riskAdd }: label for display, riskAdd = 50 (HIGH), 30 (MEDIUM), or 0.
+ */
+async function analyzeBundleRisk(holders) {
+  const list = (holders || []).slice(0, 10);
+  const addresses = list
+    .map(h => h.address || h.owner_address || h.token_account)
+    .filter(Boolean);
+  if (addresses.length === 0) return { label: '✅ NO BUNDLE DETECTED', riskAdd: 0 };
+
+  const SIG_LIMIT = 50;
+  const fundingBySource = {};
+
+  const fetchSigs = async (addr) => {
+    try {
+      const sigs = await heliusRpc('getSignaturesForAddress', [addr, { limit: SIG_LIMIT }]);
+      return { addr, sigs: Array.isArray(sigs) ? sigs : [] };
+    } catch(e) { return { addr, sigs: [] }; }
+  };
+
+  const results = await Promise.all(addresses.map(fetchSigs));
+
+  for (const { addr, sigs } of results) {
+    if (sigs.length >= SIG_LIMIT) continue;
+    if (sigs.length === 0) continue;
+    const lastSig = sigs[sigs.length - 1];
+    const sigStr = typeof lastSig === 'string' ? lastSig : lastSig?.signature;
+    if (!sigStr) continue;
+    try {
+      const tx = await heliusRpc('getTransaction', [sigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+      if (!tx?.transaction?.message?.accountKeys?.length) continue;
+      const keys = tx.transaction.message.accountKeys;
+      const feePayer = (keys[0] && typeof keys[0] === 'object' && keys[0].pubkey) ? keys[0].pubkey : (typeof keys[0] === 'string' ? keys[0] : null);
+      if (!feePayer) continue;
+      fundingBySource[feePayer] = (fundingBySource[feePayer] || 0) + 1;
+    } catch(e) { /* skip */ }
+  }
+
+  const counts = Object.values(fundingBySource).filter(c => c > 0);
+  const maxSame = counts.length ? Math.max(...counts) : 0;
+
+  if (maxSame >= 7) return { label: '🔴 BUNDLE RISK: HIGH (Dev Sniped)', riskAdd: 50 };
+  if (maxSame >= 4) return { label: '🟡 BUNDLE RISK: MEDIUM', riskAdd: 30 };
+  if (maxSame >= 1) return { label: '🟢 BUNDLE RISK: LOW', riskAdd: 0 };
+  return { label: '✅ NO BUNDLE DETECTED', riskAdd: 0 };
+}
+
 async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
@@ -652,7 +713,7 @@ async function getContractSourceCode(contractAddress) {
   } catch(e) { return ''; }
 }
 
-async function getAIAudit(sourceCode, sd = {}) {
+async function getAIAudit(sourceCode, sd = {}, bundleStatus = null) {
   if (!process.env.OPENAI_API_KEY) return 'N/A (no OpenAI API key)';
   const isSolana    = sourceCode === 'SOLANA_TOKEN';
   const snippet     = isSolana ? "No smart contract code available. Rely ONLY on the provided API flags." : (sourceCode || '').slice(0, 3000);
@@ -665,16 +726,19 @@ async function getAIAudit(sourceCode, sd = {}) {
   const solMutable   = (sd.balance_mutable_authority?.status === "1") ? "YES" : "NO";
   const solClosable  = (sd.closable?.status === "1") ? "YES" : "NO";
   const securityDataText = isSolana
-    ? `Freezable: ${solFreezable}, Balance Mutable: ${solMutable}, Closable: ${solClosable}`
+    ? `Freezable: ${solFreezable}, Balance Mutable: ${solMutable}, Closable: ${solClosable}, Bundle Risk: ${bundleStatus != null ? bundleStatus : 'N/A'}`
     : `Honeypot: ${isHoneypot}, Mintable: ${isMintable}, Buy Tax: ${buyTax}%, Sell Tax: ${sellTax}%`;
 
+  const bundleRule = isSolana && bundleStatus && String(bundleStatus).toUpperCase().includes('HIGH')
+    ? "\nIF Bundle Risk is HIGH, state that dev is likely holding a massive hidden supply via multiple ghost wallets and strongly advise against aping."
+    : "";
   const systemPrompt = `You are a highly cynical, elite crypto security auditor looking for meme coin rugpulls.
 CHAIN: ${chainContext}
 CRITICAL ON-CHAIN DATA: ${securityDataText}
 STRICT RULES:
 IF CHAIN IS EVM: If 'Mintable' is YES, increase Risk Score to at least 80%.
 IF CHAIN IS SOLANA: If ANY of Freezable, Balance Mutable, or Closable is YES, Risk Score at least 80%.
-IF CHAIN IS SOLANA AND ALL flags are NO: Risk Score around 10-20%, state "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."
+IF CHAIN IS SOLANA AND ALL flags are NO: Risk Score around 10-20%, state "Renounced authorities ensure basic technical safety, but beware of dev/social dumping."${bundleRule}
 Format STRICTLY as: Risk: [XX]% | [1-sentence explanation]`;
 
   try {
@@ -730,16 +794,21 @@ async function runScanInChat(chatId, contractAddress) {
         const meta    = sd.metadata || {};
         const top10pct = (sd?.top_holders || []).slice(0, 10).reduce((s, h) => s + parseFloat(h.percent || 0), 0);
         const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
-        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd);
+        const bundleRisk = await analyzeBundleRisk(sd.top_holders);
+        const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleRisk.label);
+        const baseRisk = calcRisk(sd, 'SOL');
+        const finalRisk = Math.min(99, baseRisk + (bundleRisk.riskAdd || 0));
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
           `⛓️ <b>Chain:</b> Solana\n` +
           `🪙 <b>Token:</b> ${meta.name || "?"} (${meta.symbol || "?"})\n` +
           `📍 <b>Address:</b> <code>${contractAddress}</code>\n\n` +
+          `📊 <b>Risk:</b> ${finalRisk}%\n\n` +
           `⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
           `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
+          `🔗 <b>Bundle Scan:</b> ${bundleRisk.label}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       } else {
