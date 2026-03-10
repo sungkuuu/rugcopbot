@@ -319,6 +319,9 @@ async function detectSniperBundle(ca) {
     const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 100 }]);
     const list = Array.isArray(sigs) ? sigs : [];
     if (list.length === 0) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    if (list.length === 100) {
+      return { label: '⚪ BUNDLE SCAN: N/A (Volume too high to trace genesis)', riskAdd: 0, flags: ['DATA_LIMIT'] };
+    }
 
     const genesisItem = list[list.length - 1];
     const genesisSig = typeof genesisItem === 'string' ? genesisItem : genesisItem?.signature;

@@ -77,7 +77,7 @@ h1 .r{color:var(--red2)}
 .result-flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:14px}
 .rflag{background:var(--bg3);border:1px solid var(--border);padding:10px}
 .rflag-key{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:3px}
-.rflag-val{font-size:1.15rem;font-weight:500}
+.rflag-val{font-size:1.15rem;font-weight:500;line-height:1.2;display:block}
 .val-danger{color:#d94535}.val-safe{color:#1a9e50}.val-warn{color:#c49a14}
 .result-verdict{font-size:9px;color:var(--text);line-height:1.9;background:rgba(26,158,80,.04);border:1px solid rgba(26,158,80,.1);padding:12px;margin-bottom:0}
 .result-verdict strong{color:var(--green)}
@@ -208,7 +208,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 
 @media(max-width:768px){
   .result-card .rflag-key{font-size:8px}
-  .result-card .rflag-val{font-size:0.85rem}
+  .result-card .rflag-val{font-size:0.85rem;line-height:1.2;display:block}
 }
 @media(max-width:900px){
   nav{padding:0 16px}.nav-pills{display:none}
@@ -569,9 +569,14 @@ async function getScanResultHtml(ca){
         }
       }
     }catch(e){}
+    let shortBundle=bundleLabel;
+    if(shortBundle.includes('NO OBVIOUS'))shortBundle='✅ CLEAN';
+    else if(shortBundle.includes('HIGH'))shortBundle='🔴 HIGH';
+    else if(shortBundle.includes('MEDIUM'))shortBundle='🟡 MED';
+    else if(shortBundle.includes('UNAVAILABLE'))shortBundle='⚠️ N/A';
     risk=Math.min(99,risk+bundleRiskAdd);
     rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:bundleLabel,c:bundleClass}];
+    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:shortBundle,c:bundleClass}];
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
   const isSolChain=chain==='SOL';
