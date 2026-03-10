@@ -352,8 +352,10 @@ function buyJupiter(e,mint){
       displayMode:'modal',
       initialInputMint:'So11111111111111111111111111111111111111112',
       initialOutputMint:mint,
-      feeBps:69,
-      feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+      platformFeeAndAccounts:{
+        feeBps:69,
+        referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV'
+      },
       containerStyles:{zIndex:1000}
     });
   }
@@ -656,8 +658,10 @@ document.addEventListener('click',function(e){
     displayMode:'modal',
     initialInputMint:'So11111111111111111111111111111111111111112',
     initialOutputMint:outputMint,
-    feeBps:69,
-    feeAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV',
+    platformFeeAndAccounts:{
+      feeBps:69,
+      referralAccount:'DAVJUE2ag3fmdnxBg5NDroWdfnaoADvftNLPKDmCxHjV'
+    },
     containerStyles:{zIndex:1000}
   });
 });
