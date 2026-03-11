@@ -327,23 +327,16 @@ async function detectSniperBundle(ca) {
   if (!ca || !HELIUS_API_KEY) return { label: 'N/A', riskAdd: 0 };
   try {
     // Step 1: 시그니처 수 사전 체크
-    const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
     const txRes = await fetch(
-      `https://api.helius.xyz/v0/addresses/${PUMP_FUN_PROGRAM}/transactions?api-key=${HELIUS_API_KEY}&limit=100`,
-      { method: 'GET' }
+      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&type=SWAP&limit=100`
     );
     const txData = await txRes.json();
-    const allTxs = Array.isArray(txData) ? txData : [];
-    const signatures = allTxs
-      .filter(tx => JSON.stringify(tx).includes(ca))
-      .map(tx => tx.signature)
-      .filter(Boolean);
+    const parsedTxs = Array.isArray(txData) ? txData : [];
+    const signatures = parsedTxs.map(tx => tx.signature).filter(Boolean);
     console.log(`[Bundle] CA: ${ca}`);
     console.log(`[Bundle] Total signatures: ${signatures.length}`);
-    if (signatures.length >= 200) {
-      return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
-    }
     if (signatures.length === 0) return { label: 'N/A', riskAdd: 0 };
+    if (signatures.length >= 200) return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
 
     // Step 2: Genesis 시점 파악
     const genesisItem = signatures[signatures.length - 1];
@@ -357,15 +350,8 @@ async function detectSniperBundle(ca) {
     const oldestSigs = signatures.slice(-60).map(it => typeof it === 'string' ? it : it?.signature).filter(Boolean);
     if (oldestSigs.length === 0) return { label: 'N/A', riskAdd: 0 };
 
-    // Step 4: Helius parsedTransactions로 파싱 → feePayer 추출
-    const parseRes = await fetch(`https://api.helius.xyz/v0/transactions?api-key=${HELIUS_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transactions: oldestSigs })
-    });
-    if (!parseRes.ok) return { label: 'N/A', riskAdd: 0 };
-    const parseData = await parseRes.json();
-    const parsedArray = Array.isArray(parseData) ? parseData : (parseData?.transactions ?? []);
+    // Step 4: 이미 parsedTxs에 파싱된 데이터 있음 — 재활용
+    const parsedArray = parsedTxs;
     const snipers = new Set();
     for (let i = 0; i < parsedArray.length; i++) {
       const pt = parsedArray[i];
