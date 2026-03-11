@@ -375,7 +375,7 @@ async function detectSniperBundle(ca) {
     const fundingSources = {};
     for (const wallet of sniperList) {
       try {
-        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 50 }]);
+        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 100 }]);
         const warr = Array.isArray(wsigs) ? wsigs : [];
         if (warr.length === 0) continue;
         const oldest = warr[warr.length - 1];
