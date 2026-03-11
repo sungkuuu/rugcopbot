@@ -330,8 +330,10 @@ async function detectSniperBundle(ca) {
     const txRes = await fetch(
       `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=100`
     );
-    const txData = await txRes.json();
-    const parsedTxs = Array.isArray(txData) ? txData : [];
+    const txText = await txRes.text();
+    console.log(`[Bundle] Helius raw response (first 200):`, txText.slice(0, 200));
+    let parsedTxs = [];
+    try { parsedTxs = JSON.parse(txText); if (!Array.isArray(parsedTxs)) parsedTxs = []; } catch(e) { console.log(`[Bundle] JSON parse error:`, e.message); }
     const signatures = parsedTxs.map(tx => tx.signature).filter(Boolean);
     console.log(`[Bundle] CA: ${ca}`);
     console.log(`[Bundle] Total signatures: ${signatures.length}`);
