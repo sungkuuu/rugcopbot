@@ -338,7 +338,7 @@ async function detectSniperBundle(ca) {
     console.log(`[Bundle] CA: ${ca}`);
     console.log(`[Bundle] Total signatures: ${signatures.length}`);
     if (signatures.length === 0) return { label: 'N/A', riskAdd: 0 };
-    if (signatures.length >= 100) return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
+    if (signatures.length >= 100) return { label: 'N/A (High volume — analysis unavailable)', riskAdd: 0 };
 
     // Step 2: Genesis 시점 파악
     const genesisItem = signatures[signatures.length - 1];
