@@ -466,8 +466,15 @@ async function processNewToken(ca, name, symbol) {
 
       if (risk > 30 && risk < 50) return; // 중간 위험은 스킵
 
+      let logo = null;
+      try {
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+        const dexData = await dexRes.json();
+        logo = dexData.pairs?.[0]?.info?.imageUrl || null;
+      } catch(e) {}
+
       if (risk <= 30 || risk >= 50) {
-        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, logo: logo ?? null });
         if (risk <= 30 || risk >= 80) await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
       }
       return;
