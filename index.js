@@ -539,10 +539,6 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
 
-    const bundleRisk = await detectSniperBundle(ca);
-    risk += (bundleRisk.riskAdd || 0);
-    if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
-
     const topHolders = sd.top_holders || [];
     const top10pct = topHolders.slice(0, 10)
       .reduce((s, h) => s + parseFloat(h.percent || 0), 0);
