@@ -306,87 +306,124 @@ async function heliusRpc(method, params) {
   } catch(e) { return null; }
 }
 
-/** Known CEX / high-volume hot wallets to exclude from bundle funder tally. */
-const KNOWN_CEX_ADDRESSES = new Set(['Binance', 'Coinbase', 'OKX', 'Kraken', 'Bybit']);
+/** 거래소 화이트리스트 — 이 주소에서 펀딩된 스나이퍼는 번들로 간주하지 않음 */
+const CEX_WHITELIST = new Set([
+  '5tzFkiKscXHK5ZXCGbGuygQFBwZYTQpr6UKTuuZFSHSo', // Binance
+  'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', // Coinbase
+  'okv8ProtocolProgram111111111111111111111111111'  // OKX
+]);
+
+function abbreviateWallet(addr) {
+  if (!addr || typeof addr !== 'string') return '—';
+  if (addr.length <= 12) return addr;
+  return addr.slice(0, 4) + '...' + addr.slice(-4);
+}
 
 /**
- * Temporal bundle detection: genesis + early snipers (within 60s), trace funders.
- * Returns { label, riskAdd, flags }.
+ * Temporal bundle detection: genesis + 60s window → snipers → funding sources.
+ * Returns { label, riskAdd, sniperCount?, sourceWallet?, flags? }.
  */
 async function detectSniperBundle(ca) {
-  if (!ca || !HELIUS_API_KEY) return { label: '⚠️ UNAVAILABLE (RPC Error)', riskAdd: 20, flags: [] };
+  if (!ca || !HELIUS_API_KEY) return { label: 'N/A', riskAdd: 0 };
   try {
-    const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 100 }]);
-    const list = Array.isArray(sigs) ? sigs : [];
-    if (list.length === 0) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
-    if (list.length === 100) {
-      return { label: '⚪ BUNDLE SCAN: N/A (Volume too high to trace genesis)', riskAdd: 0, flags: ['DATA_LIMIT'] };
+    // Step 1: 시그니처 수 사전 체크
+    const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 1000 }]);
+    const signatures = Array.isArray(sigs) ? sigs : [];
+    console.log(`[Bundle] CA: ${ca}`);
+    console.log(`[Bundle] Total signatures: ${signatures.length}`);
+    if (signatures.length >= 200) {
+      return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
     }
+    if (signatures.length === 0) return { label: 'N/A', riskAdd: 0 };
 
-    const genesisItem = list[list.length - 1];
+    // Step 2: Genesis 시점 파악
+    const genesisItem = signatures[signatures.length - 1];
     const genesisSig = typeof genesisItem === 'string' ? genesisItem : genesisItem?.signature;
-    if (!genesisSig) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
-
+    if (!genesisSig) return { label: 'N/A', riskAdd: 0 };
     const genesisTx = await heliusRpc('getTransaction', [genesisSig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-    if (!genesisTx?.transaction?.message?.accountKeys?.length) return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
-
+    if (!genesisTx) return { label: 'N/A', riskAdd: 0 };
     const genesisBlockTime = genesisTx.blockTime ?? 0;
-    const keys0 = genesisTx.transaction.message.accountKeys;
-    const feePayer0 = (keys0[0] && typeof keys0[0] === 'object' && keys0[0].pubkey) ? keys0[0].pubkey : (typeof keys0[0] === 'string' ? keys0[0] : null);
 
-    const earlyItems = list.slice(-20);
+    // Step 3: Genesis 후 60초 이내 시그니처만 필터링 (최대 30개). blockTime은 Step 4 파싱 후 사용.
+    const oldestSigs = signatures.slice(-60).map(it => typeof it === 'string' ? it : it?.signature).filter(Boolean);
+    if (oldestSigs.length === 0) return { label: 'N/A', riskAdd: 0 };
+
+    // Step 4: Helius parsedTransactions로 파싱 → feePayer 추출
+    const parseRes = await fetch(`https://api.helius.xyz/v0/transactions?api-key=${HELIUS_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: oldestSigs })
+    });
+    if (!parseRes.ok) return { label: 'N/A', riskAdd: 0 };
+    const parseData = await parseRes.json();
+    const parsedArray = Array.isArray(parseData) ? parseData : (parseData?.transactions ?? []);
     const snipers = new Set();
-    if (feePayer0) snipers.add(feePayer0);
-
-    for (const item of earlyItems) {
-      const sigStr = typeof item === 'string' ? item : item?.signature;
-      if (!sigStr || sigStr === genesisSig) continue;
-      let blockTime = item?.blockTime;
-      if (blockTime != null && genesisBlockTime > 0 && (blockTime < genesisBlockTime || blockTime > genesisBlockTime + 60)) continue;
-      try {
-        const tx = await heliusRpc('getTransaction', [sigStr, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
-        if (!tx?.transaction?.message?.accountKeys?.length) continue;
-        if (genesisBlockTime > 0 && tx.blockTime != null && (tx.blockTime < genesisBlockTime || tx.blockTime > genesisBlockTime + 60)) continue;
-        const k = tx.transaction.message.accountKeys[0];
-        const fp = (k && typeof k === 'object' && k.pubkey) ? k.pubkey : (typeof k === 'string' ? k : null);
-        if (fp) snipers.add(fp);
-      } catch (e) { /* skip */ }
+    for (let i = 0; i < parsedArray.length; i++) {
+      const pt = parsedArray[i];
+      const ts = pt?.timestamp ?? pt?.blockTime ?? 0;
+      if (genesisBlockTime > 0 && ts > 0 && (ts < genesisBlockTime || ts > genesisBlockTime + 60)) continue;
+      let fp = pt?.feePayer ?? pt?.feePayerAddress ?? pt?.accountKey;
+      if (!fp && pt?.transaction?.message?.accountKeys?.[0]) {
+        const k = pt.transaction.message.accountKeys[0];
+        fp = (k && typeof k === 'object' && k.pubkey) ? k.pubkey : (typeof k === 'string' ? k : null);
+      }
+      if (fp) snipers.add(fp);
     }
+    const sniperList = Array.from(snipers).slice(0, 30);
+    console.log(`[Bundle] Snipers in 60s window: ${sniperList.length}`);
 
-    const funderCounts = {};
-    const sniperList = Array.from(snipers).slice(0, 20);
+    if (sniperList.length === 0) return { label: 'N/A', riskAdd: 0 };
 
-    for (const sniperAddr of sniperList) {
+    // Step 5: 각 스나이퍼 지갑의 SOL 펀딩 소스 역추적
+    const fundingSources = {};
+    for (const wallet of sniperList) {
       try {
-        const sniperSigs = await heliusRpc('getSignaturesForAddress', [sniperAddr, { limit: 10 }]);
-        const arr = Array.isArray(sniperSigs) ? sniperSigs : [];
-        if (arr.length === 0) continue;
-        const oldest = arr[arr.length - 1];
-        const oldestSig = typeof oldest === 'string' ? oldest : oldest?.signature;
-        if (!oldestSig) continue;
-        const fundTx = await heliusRpc('getTransaction', [oldestSig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 10 }]);
+        const warr = Array.isArray(wsigs) ? wsigs : [];
+        if (warr.length === 0) continue;
+        const oldest = warr[warr.length - 1];
+        const osig = typeof oldest === 'string' ? oldest : oldest?.signature;
+        if (!osig) continue;
+        const fundTx = await heliusRpc('getTransaction', [osig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
         if (!fundTx?.transaction?.message?.accountKeys?.length) continue;
         const fk = fundTx.transaction.message.accountKeys[0];
         const funder = (fk && typeof fk === 'object' && fk.pubkey) ? fk.pubkey : (typeof fk === 'string' ? fk : null);
-        if (!funder || funder === sniperAddr) continue;
-        let isCex = false;
-        for (const cex of KNOWN_CEX_ADDRESSES) {
-          if (typeof funder === 'string' && typeof cex === 'string' && (funder.includes(cex) || cex.includes(funder))) { isCex = true; break; }
-        }
-        if (isCex) continue;
-        funderCounts[funder] = (funderCounts[funder] || 0) + 1;
+        if (!funder || funder === wallet) continue;
+        if (CEX_WHITELIST.has(funder)) continue;
+        fundingSources[funder] = (fundingSources[funder] || 0) + 1;
       } catch (e) { /* skip */ }
     }
+    console.log(`[Bundle] Funding sources:`, fundingSources);
 
-    const counts = Object.values(funderCounts).filter(c => c > 0);
+    // Step 6: 동일 펀딩 소스 카운트 → 판정
+    const counts = Object.values(fundingSources).filter(c => c > 0);
     const maxFunded = counts.length ? Math.max(...counts) : 0;
+    const topSource = counts.length ? Object.entries(fundingSources).find(([, c]) => c === maxFunded)?.[0] : null;
+    const sourceWalletShort = topSource ? abbreviateWallet(topSource) : '—';
 
-    if (maxFunded >= 5) return { label: `🔴 BUNDLE RISK: HIGH — ${maxFunded} snipers funded from same wallet`, riskAdd: 50, flags: ['HIGH_BUNDLE'] };
-    if (maxFunded >= 3) return { label: `🟡 BUNDLE RISK: MEDIUM — ${maxFunded} snipers share funding`, riskAdd: 30, flags: ['MED_BUNDLE'] };
-    return { label: '✅ NO OBVIOUS BUNDLE DETECTED', riskAdd: 0, flags: [] };
+    // Step 7: 반환 형식
+    if (maxFunded >= 5) {
+      return {
+        label: `🔴 BUNDLE RISK: HIGH — ${maxFunded} snipers funded from same wallet (${sourceWalletShort})`,
+        riskAdd: 50,
+        sniperCount: maxFunded,
+        sourceWallet: sourceWalletShort,
+        flags: ['HIGH_BUNDLE']
+      };
+    }
+    if (maxFunded >= 3) {
+      return {
+        label: `🟡 BUNDLE RISK: MEDIUM — ${maxFunded} snipers funded from same wallet (${sourceWalletShort})`,
+        riskAdd: 30,
+        sniperCount: maxFunded,
+        sourceWallet: sourceWalletShort,
+        flags: ['MED_BUNDLE']
+      };
+    }
+    return { label: 'N/A', riskAdd: 0, flags: [] };
   } catch (e) {
     console.error('detectSniperBundle error:', e.message);
-    return { label: '⚠️ UNAVAILABLE (RPC Error)', riskAdd: 20, flags: [] };
+    return { label: 'N/A', riskAdd: 0 };
   }
 }
 
@@ -690,9 +727,10 @@ app.get('/api/solana-bundle', async (req, res) => {
   if (!ca) return res.json({ label: 'N/A' });
   try {
     const result = await detectSniperBundle(ca);
-    res.json({ label: result.label });
+    res.json(result);
   } catch (e) {
-    res.json({ label: '⚠️ UNAVAILABLE' });
+    console.error('[Bundle] Error:', e.message);
+    res.json({ label: 'N/A' });
   }
 });
 
