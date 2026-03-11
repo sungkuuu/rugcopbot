@@ -328,7 +328,7 @@ async function detectSniperBundle(ca) {
   try {
     // Step 1: 시그니처 수 사전 체크
     const txRes = await fetch(
-      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&type=SWAP&limit=100`
+      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=100`
     );
     const txData = await txRes.json();
     const parsedTxs = Array.isArray(txData) ? txData : [];
