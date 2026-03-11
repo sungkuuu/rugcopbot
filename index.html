@@ -734,64 +734,15 @@ function closeScanModal(){
   document.getElementById('scanModalOverlay').classList.remove('show');
 }
 function openCardModal(ca) {
-  document.getElementById('cardModalOverlay').classList.add('show');
+  const overlay = document.getElementById('cardModalOverlay');
   const content = document.getElementById('cardModalContent');
-  const t = allTokens.find(x => x.ca === ca);
-
-  if (!t) {
-    content.innerHTML = '<div style="padding:20px; text-align:center;">Data not found.</div>';
-    return;
-  }
-
-  const isSol = (t.chain || 'SOL') === 'SOL';
-  const isMut = (t.flags || []).includes('MUTABLE_METADATA') || (t.flags || []).includes('MUTABLE');
-  const isFre = (t.flags || []).includes('FREEZE_AUTHORITY') || (t.flags || []).includes('FREEZABLE');
-  const top10 = t.top10pct ? Math.round(t.top10pct) + '%' : 'N/A';
-  const vol = t.volume24h ? '$' + Number(t.volume24h).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
-  const mcap = (t.marketCap || t.market_cap) ? '$' + Number(t.marketCap || t.market_cap).toLocaleString(undefined, {maximumFractionDigits:0}) : 'N/A';
-  const riskColor = t.risk >= 70 ? '#d94535' : t.risk <= 30 ? '#1a9e50' : '#c49a14';
-  const fl = t.flags || [];
-  let bundleStatus = 'N/A';
-  let bundleColor = '#1a9e50';
-  if (fl.includes('HIGH_BUNDLE')) { bundleStatus = 'HIGH'; bundleColor = '#d94535'; }
-  else if (fl.includes('MED_BUNDLE')) { bundleStatus = 'MEDIUM'; bundleColor = '#c49a14'; }
-  else if (fl.includes('BUNDLE_LOW') || fl.includes('NO_BUNDLE')) { bundleStatus = fl.includes('BUNDLE_LOW') ? 'LOW' : 'NO'; bundleColor = '#1a9e50'; }
-
-  content.innerHTML = `
-    <div style="padding: 24px; font-family: 'IBM Plex Mono', monospace; color: var(--text); font-size: 14px; line-height: 2;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom: 20px;">
-        ${t.logo ? `<img src="${t.logo}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--border);">` : '<div style="font-size:32px;">🚨</div>'}
-        <div style="font-family:'Orbitron', sans-serif; font-size: 16px; color: var(--bright);">
-          ${t.name} | ${t.chain || 'SOL'} | Risk: <span style="color:${riskColor}">${t.risk}%</span>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <span style="color:var(--muted)">CA:</span><br>
-        <span style="color:var(--bright); word-break: break-all; font-size: 12px; background: var(--bg3); padding: 4px 8px; border-radius: 4px;">${t.ca}</span>
-      </div>
-
-      <div style="margin-bottom: 16px; display:flex; gap: 24px;">
-        <div>⚖️ Mutable: ${isMut ? '🚨 YES' : '✅ NO'}</div>
-        <div>🧊 Freezable: ${isFre ? '🚨 YES' : '✅ NO'}</div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        👥 Top 10 Holders: <span style="color:var(--bright)">${top10}</span>
-      </div>
-
-      <div style="margin-bottom: 16px;">🔗 Bundle Risk: <span style="color:${bundleColor}">${bundleStatus}</span></div>
-
-      <div style="margin-bottom: 24px;">
-        <div>💰 Vol 24h: <span style="color:var(--green)">${vol}</span></div>
-        <div>📊 MCap: <span style="color:var(--bright)">${mcap}</span></div>
-      </div>
-
-      <div style="text-align:left; color: var(--muted); font-size: 12px; border-top: 1px dashed var(--border); padding-top: 16px;">
-        Scan before you ape 👇 <span style="color: var(--red2);">rugcop.xyz</span>
-      </div>
-    </div>
-  `;
+  overlay.classList.add('show');
+  content.innerHTML = '<div class="card-modal-loading"><div class="spin"></div> Scanning...</div>';
+  getScanResultHtml(ca).then(html => {
+    content.innerHTML = html;
+  }).catch(() => {
+    content.innerHTML = '<div style="padding:20px;text-align:center;font-size:9px;color:#d94535;">Scan failed.</div>';
+  });
 }
 function closeCardModal(){
   document.getElementById('cardModalOverlay').classList.remove('show');
