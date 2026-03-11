@@ -209,8 +209,8 @@ async function tweetAlert(rug) {
     (flags || []).includes('FREEZE_AUTHORITY') ||
     (flags || []).includes('FREEZABLE');
 
-  // DANGER 알림 (risk >= 70, volume >= 5000)
-  if (risk >= 70 && volume24h >= 5000) {
+  // DANGER 알림 (risk >= 70)
+  if (risk >= 70) {
     const dangerMsg = `🚨 SCAM ALERT — $${symbol}
 
 ${name} | ${chainStr} | Risk: ${risk}%
@@ -445,6 +445,8 @@ async function processNewToken(ca, name, symbol) {
       const assetData = await assetRes.json();
       const asset = assetData.result;
 
+      let logo = asset?.content?.links?.image || asset?.content?.files?.[0]?.uri || null;
+
       let risk = 30;
       let flags = [];
 
@@ -464,17 +466,15 @@ async function processNewToken(ca, name, symbol) {
       const name = asset?.content?.metadata?.name || 'Unknown';
       const symbol = asset?.content?.metadata?.symbol || '???';
 
+      const bundleRisk = await detectSniperBundle(ca);
+      risk += (bundleRisk.riskAdd || 0);
+      if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
+      risk = Math.min(risk, 99);
+
       if (risk > 30 && risk < 50) return; // 중간 위험은 스킵
 
-      let logo = null;
-      try {
-        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
-        const dexData = await dexRes.json();
-        logo = dexData.pairs?.[0]?.info?.imageUrl || null;
-      } catch(e) {}
-
       if (risk <= 30 || risk >= 50) {
-        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, logo: logo ?? null });
+        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, logo: logo ?? null, bundle_label: bundleRisk.label, bundle_risk_add: bundleRisk.riskAdd ?? 0 });
         if (risk <= 30 || risk >= 80) await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
       }
       return;
@@ -611,7 +611,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       await saveRug({ ...rugPayload, type: 'danger' });
       await tweetAlert({ ...rugPayload, volume24h, marketCap });
     }
-    if (risk >= 70 && volume24h >= 5000) {
+    if (risk >= 70) {
       await saveRug({ ...rugPayload, type: 'danger' });
       await tweetAlert({ ...rugPayload, volume24h, marketCap });
     }

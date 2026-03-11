@@ -737,12 +737,50 @@ function openCardModal(ca) {
   const overlay = document.getElementById('cardModalOverlay');
   const content = document.getElementById('cardModalContent');
   overlay.classList.add('show');
-  content.innerHTML = '<div class="card-modal-loading"><div class="spin"></div> Scanning...</div>';
-  getScanResultHtml(ca).then(html => {
-    content.innerHTML = html;
-  }).catch(() => {
-    content.innerHTML = '<div style="padding:20px;text-align:center;font-size:9px;color:#d94535;">Scan failed.</div>';
-  });
+  const t = allTokens.find(x => x.ca === ca);
+  if (!t) {
+    content.innerHTML = '<div class="card-modal-loading" style="padding:20px;text-align:center;color:var(--muted);">Token not found in feed.</div>';
+    return;
+  }
+  const flags = typeof t.flags === 'string' ? (() => { try { return JSON.parse(t.flags || '[]'); } catch(e) { return []; } })() : (t.flags || []);
+  const isMutable = flags.includes('MUTABLE_METADATA') || flags.includes('MUTABLE');
+  const isFreezable = flags.includes('FREEZE_AUTHORITY') || flags.includes('FREEZABLE');
+  const bundleFlag = flags.find(f => (f && (f.includes('HIGH_BUNDLE') || f.includes('MED_BUNDLE') || f.includes('BUNDLE'))));
+  let bundleLabel = '—';
+  if (bundleFlag) {
+    if (/HIGH/i.test(bundleFlag)) bundleLabel = '🔴 HIGH';
+    else if (/MED/i.test(bundleFlag)) bundleLabel = '🟡 MED';
+    else bundleLabel = bundleFlag;
+  } else if (t.bundle_label) bundleLabel = t.bundle_label;
+  const top10str = t.top10pct != null ? Math.round(t.top10pct) + '%' : 'N/A';
+  const vol = t.volume24h != null ? '$' + Number(t.volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—';
+  const mcap = (t.marketCap != null || t.market_cap != null) ? '$' + Number(t.marketCap ?? t.market_cap).toLocaleString('en-US') : '—';
+  const name = (t.name && t.name !== 'Unknown') ? String(t.name).replace(/</g, '&lt;') : (t.symbol && t.symbol !== '???' ? String(t.symbol).replace(/</g, '&lt;') : 'Unknown');
+  const sym = (t.symbol && t.symbol !== '???') ? ('$' + String(t.symbol).replace(/</g, '&lt;')) : '';
+  const logoHtml = t.logo
+    ? `<img src="${String(t.logo).replace(/"/g, '&quot;')}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none;font-size:24px">🚨</span>`
+    : '<span style="font-size:24px">🚨</span>';
+  const riskCls = (t.risk >= 70) ? 'risk-high' : (t.risk >= 40) ? 'risk-mid' : 'risk-low';
+  const flagsStr = flags.filter(f => f && f !== 'NO_SCAN_DATA').slice(0, 6).map(f => `<span class="tcf tcf-danger" style="margin:2px 4px 2px 0">${String(f).replace(/</g, '&lt;')}</span>`).join('');
+  content.innerHTML = `<div class="result-card" style="max-width:100%">
+    <div class="result-header">
+      <div class="result-header-left">${logoHtml}<div><div class="result-name">${name}</div><div class="result-sym">${sym} · ${t.chain || 'SOL'}</div></div></div>
+      <span class="risk-pill ${riskCls}">${t.risk}%</span>
+    </div>
+    <div style="margin-top:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.08);font-size:10px;word-break:break-all;color:var(--muted)"><strong style="color:rgba(255,255,255,0.7)">CA:</strong> ${String(t.ca).replace(/</g, '&lt;')}</div>
+    <div class="result-flags" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px">
+      <div class="rflag"><span class="rflag-key">Mutable</span><span class="rflag-val ${isMutable ? 'val-danger' : 'val-safe'}">${isMutable ? '🚨 YES' : '✅ NO'}</span></div>
+      <div class="rflag"><span class="rflag-key">Freezable</span><span class="rflag-val ${isFreezable ? 'val-danger' : 'val-safe'}">${isFreezable ? '🚨 YES' : '✅ NO'}</span></div>
+      <div class="rflag"><span class="rflag-key">Top 10 Holders</span><span class="rflag-val val-safe">${top10str}</span></div>
+      <div class="rflag"><span class="rflag-key">Bundle Risk</span><span class="rflag-val val-safe">${String(bundleLabel).replace(/</g, '&lt;')}</span></div>
+      <div class="rflag"><span class="rflag-key">Volume 24h</span><span class="rflag-val val-safe">${vol}</span></div>
+      <div class="rflag"><span class="rflag-key">MCap</span><span class="rflag-val val-safe">${mcap}</span></div>
+    </div>
+    ${flagsStr ? `<div style="margin-top:10px;font-size:9px;flex-wrap:wrap;display:flex">${flagsStr}</div>` : ''}
+    <div class="result-actions" style="margin-top:12px">
+      <a href="${getBananaLink(t.ca, t.chain || 'SOL')}" target="_blank" class="result-buy"><span class="btn-icon"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>
+    </div>
+  </div>`;
 }
 function closeCardModal(){
   document.getElementById('cardModalOverlay').classList.remove('show');
