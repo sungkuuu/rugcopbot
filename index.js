@@ -477,9 +477,6 @@ async function processNewToken(ca, name, symbol) {
   meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
-  const bundleRisk = await detectSniperBundle(ca);
-  risk += (bundleRisk.riskAdd || 0);
-  if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
   risk = Math.min(risk, 99);
 
   if (risk > 30 && risk < 50) {
