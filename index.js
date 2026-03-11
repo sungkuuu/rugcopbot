@@ -507,6 +507,14 @@ async function processNewToken(ca, name, symbol) {
     rug.symbol = metaFromHelius.symbol;
   }
 
+  let logo = null;
+  try {
+    const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+    const dexData = await dexRes.json();
+    logo = dexData.pairs?.[0]?.info?.imageUrl || null;
+  } catch(e) {}
+
+  rug.logo = logo ?? null;
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
