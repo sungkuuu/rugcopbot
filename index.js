@@ -87,10 +87,14 @@ async function saveRug(rug) {
   }
   try {
     await pool.query(
-      `INSERT INTO tokens (ca, name, symbol, chain, risk, flags, volume24h, market_cap, logo, type)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (ca) DO NOTHING`,
-      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean']
+      `INSERT INTO tokens (ca, name, symbol, chain, risk, flags, volume24h, market_cap, logo, type, bundle_label, bundle_risk_add)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT (ca) DO UPDATE SET
+         name=EXCLUDED.name, symbol=EXCLUDED.symbol, chain=EXCLUDED.chain, risk=EXCLUDED.risk,
+         flags=EXCLUDED.flags, volume24h=EXCLUDED.volume24h, market_cap=EXCLUDED.market_cap,
+         logo=EXCLUDED.logo, type=EXCLUDED.type,
+         bundle_label=EXCLUDED.bundle_label, bundle_risk_add=EXCLUDED.bundle_risk_add`,
+      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean', rug.bundle_label ?? null, rug.bundle_risk_add ?? null]
     );
     console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
   } catch(e) {
@@ -584,6 +588,8 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       priceUsd,
       logo,
       top10pct,
+      bundle_label: bundleRisk.label,
+      bundle_risk_add: bundleRisk.riskAdd ?? 0,
     };
 
     if (risk >= 70 && volume24h >= 5000) {
@@ -766,9 +772,13 @@ app.listen(PORT, async () => {
           market_cap NUMERIC,
           logo TEXT,
           type TEXT,
+          bundle_label TEXT,
+          bundle_risk_add INTEGER,
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_label TEXT');
+      await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_risk_add INTEGER');
       console.log('✅ Tokens table ready');
     } catch(e) {
       console.error('DB table create error:', e.message);
@@ -880,7 +890,16 @@ async function runScanInChat(chatId, contractAddress) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
         const top10str = 'N/A (Hidden in Pool/Curve)';
-        const bundleRisk = await detectSniperBundle(contractAddress);
+        let bundleRisk;
+        if (process.env.DATABASE_URL) {
+          try {
+            const row = await pool.query('SELECT bundle_label, bundle_risk_add FROM tokens WHERE ca = $1 LIMIT 1', [contractAddress]);
+            if (row.rows[0]?.bundle_label != null && row.rows[0].bundle_label !== '') {
+              bundleRisk = { label: row.rows[0].bundle_label, riskAdd: row.rows[0].bundle_risk_add ?? 0 };
+            }
+          } catch (e) { /* ignore */ }
+        }
+        if (!bundleRisk) bundleRisk = await detectSniperBundle(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
         const baseRisk = calcRisk(sd, 'SOL');
