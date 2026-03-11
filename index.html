@@ -483,6 +483,22 @@ function renderGrid(){
   else if(currentFilter==='safe')data=allTokens.filter(t=>t.risk<=30);
   else if(currentFilter==='sol')data=allTokens.filter(t=>(t.chain||'SOL')==='SOL');
   else if(currentFilter==='eth')data=allTokens.filter(t=>t.chain==='ETH');
+  // Deduplicate by name: keep the token with the highest volume24h
+  const bestByName = new Map();
+  data.forEach(t => {
+    const name = (t.name || '').toLowerCase().trim();
+    if (!name || name === 'unknown') return;
+    const currentVol = parseFloat(t.volume24h || 0);
+    const existing = bestByName.get(name);
+    if (!existing || currentVol > parseFloat(existing.volume24h || 0)) {
+      bestByName.set(name, t);
+    }
+  });
+  data = data.filter(t => {
+    const name = (t.name || '').toLowerCase().trim();
+    if (!name || name === 'unknown') return true;
+    return bestByName.get(name).ca === t.ca;
+  });
   document.getElementById('filterCount').textContent=data.length+' TOKENS';
   if(!data.length){grid.innerHTML='<div class="empty-state">NO TOKENS IN THIS FILTER YET — MONITORING LIVE...</div>';return;}
   grid.innerHTML=data.slice(0,40).map(buildCard).join('');
