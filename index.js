@@ -477,6 +477,9 @@ async function processNewToken(ca, name, symbol) {
   meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
+  const bundleRisk = await detectSniperBundle(ca);
+  risk += (bundleRisk.riskAdd || 0);
+  if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
   risk = Math.min(risk, 99);
 
   if (risk > 30 && risk < 50) {
@@ -535,6 +538,10 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     if (mutable) flags.push('MUTABLE_METADATA');
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
+
+    const bundleRisk = await detectSniperBundle(ca);
+    risk += (bundleRisk.riskAdd || 0);
+    if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
 
     const topHolders = sd.top_holders || [];
     const top10pct = topHolders.slice(0, 10)
