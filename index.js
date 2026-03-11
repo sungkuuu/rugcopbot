@@ -741,6 +741,12 @@ app.get('/api/solana-bundle', async (req, res) => {
   const ca = req.query.ca;
   if (!ca) return res.json({ label: 'N/A' });
   try {
+    if (process.env.DATABASE_URL) {
+      const row = await pool.query('SELECT bundle_label, bundle_risk_add FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+      if (row.rows[0]?.bundle_label) {
+        return res.json({ label: row.rows[0].bundle_label, riskAdd: row.rows[0].bundle_risk_add ?? 0 });
+      }
+    }
     const result = await detectSniperBundle(ca);
     res.json(result);
   } catch (e) {
