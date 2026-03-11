@@ -328,7 +328,7 @@ async function detectSniperBundle(ca) {
   try {
     // Step 1: 시그니처 수 사전 체크
     const txRes = await fetch(
-      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=100`
+      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=200`
     );
     const txText = await txRes.text();
     console.log(`[Bundle] Helius raw response (first 200):`, txText.slice(0, 200));
@@ -338,7 +338,7 @@ async function detectSniperBundle(ca) {
     console.log(`[Bundle] CA: ${ca}`);
     console.log(`[Bundle] Total signatures: ${signatures.length}`);
     if (signatures.length === 0) return { label: 'N/A', riskAdd: 0 };
-    if (signatures.length >= 200) return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
+    if (signatures.length >= 150) return { label: 'N/A (고거래량 토큰 — 분석 불가)', riskAdd: 0 };
 
     // Step 2: Genesis 시점 파악
     const genesisItem = signatures[signatures.length - 1];
@@ -375,7 +375,7 @@ async function detectSniperBundle(ca) {
     const fundingSources = {};
     for (const wallet of sniperList) {
       try {
-        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 10 }]);
+        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 50 }]);
         const warr = Array.isArray(wsigs) ? wsigs : [];
         if (warr.length === 0) continue;
         const oldest = warr[warr.length - 1];

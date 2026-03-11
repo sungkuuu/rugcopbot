@@ -753,8 +753,8 @@ function openCardModal(ca) {
   const fl = t.flags || [];
   let bundleStatus = 'N/A';
   let bundleColor = '#1a9e50';
-  if (fl.includes('BUNDLE_HIGH')) { bundleStatus = 'HIGH'; bundleColor = '#d94535'; }
-  else if (fl.includes('BUNDLE_MEDIUM')) { bundleStatus = 'MEDIUM'; bundleColor = '#c49a14'; }
+  if (fl.includes('HIGH_BUNDLE')) { bundleStatus = 'HIGH'; bundleColor = '#d94535'; }
+  else if (fl.includes('MED_BUNDLE')) { bundleStatus = 'MEDIUM'; bundleColor = '#c49a14'; }
   else if (fl.includes('BUNDLE_LOW') || fl.includes('NO_BUNDLE')) { bundleStatus = fl.includes('BUNDLE_LOW') ? 'LOW' : 'NO'; bundleColor = '#1a9e50'; }
 
   content.innerHTML = `
