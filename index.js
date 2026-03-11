@@ -361,7 +361,7 @@ async function detectSniperBundle(ca) {
     for (let i = 0; i < parsedArray.length; i++) {
       const pt = parsedArray[i];
       const ts = pt?.timestamp ?? pt?.blockTime ?? 0;
-      if (genesisBlockTime > 0 && ts > 0 && (ts < genesisBlockTime || ts > genesisBlockTime + 60)) continue;
+      if (ts > 0 && ts > genesisBlockTime + 60) continue;
       let fp = pt?.feePayer ?? pt?.feePayerAddress ?? pt?.accountKey;
       if (!fp && pt?.transaction?.message?.accountKeys?.[0]) {
         const k = pt.transaction.message.accountKeys[0];
