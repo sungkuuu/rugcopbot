@@ -445,7 +445,7 @@ function buildCard(t){
   const caJupiter=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const cardFooter=isSolChain?`
   <div class="tc-footer" onclick="event.stopPropagation()">
-    <a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="flex:1;width:100%;background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.12); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>
+    ${t.risk>=50?`<span class="tc-btn tc-skip-btn" style="flex:1;width:100%;">🚨 TOO RISKY TO APE</span>`:`<a href="${getBananaLink(ca,chain)}" target="_blank" class="tc-btn tc-buy-btn" style="flex:1;width:100%;background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.12); color:white;" onclick="event.stopPropagation()">🍌 SNIPE</a>`}
   </div>
 `:'';
   return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
@@ -590,7 +590,9 @@ async function getScanResultHtml(ca){
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
   const isSolChain=chain==='SOL';
-  const btnBanana=isSolChain
+  const btnBanana=risk>=50
+    ?`<span class="result-buy disabled" style="background:var(--muted);color:rgba(255,255,255,0.3);border-color:var(--border);"><span class="btn-icon">🛑</span> Trading Disabled (High Risk)</span>`
+    :isSolChain
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   let logoUrl=null;
@@ -778,7 +780,7 @@ function openCardModal(ca) {
     </div>
     ${flagsStr ? `<div style="margin-top:10px;font-size:9px;flex-wrap:wrap;display:flex">${flagsStr}</div>` : ''}
     <div class="result-actions" style="margin-top:12px">
-      <a href="${getBananaLink(t.ca, t.chain || 'SOL')}" target="_blank" class="result-buy"><span class="btn-icon"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>
+      ${t.risk>=50?`<span class="result-buy disabled" style="background:var(--muted);color:rgba(255,255,255,0.3);border-color:var(--border);"><span class="btn-icon">🛑</span> Trading Disabled (High Risk)</span>`:`<a href="${getBananaLink(t.ca, t.chain || 'SOL')}" target="_blank" class="result-buy"><span class="btn-icon"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`}
     </div>
   </div>`;
 }
