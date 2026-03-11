@@ -530,7 +530,38 @@ async function getScanResultHtml(ca){
   const isBase=isEVM&&(chainSelect==='base');
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
-  if(isEVM){
+
+  const dbToken = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
+  if (dbToken) {
+    risk = dbToken.risk;
+    name = dbToken.name || 'Unknown';
+    sym = dbToken.symbol || '?';
+    chain = dbToken.chain || 'SOL';
+    const flagsArr = typeof dbToken.flags === 'string' ? (() => { try { return JSON.parse(dbToken.flags || '[]'); } catch(e) { return []; } })() : (dbToken.flags || []);
+    const fz = flagsArr.includes('FREEZABLE') || flagsArr.includes('FREEZE_AUTHORITY');
+    const mu = flagsArr.includes('MUTABLE') || flagsArr.includes('MUTABLE_METADATA');
+    const cl = flagsArr.includes('CLOSABLE');
+    let bundleLabel = dbToken.bundle_label || 'N/A';
+    let bundleClass = 'val-safe';
+    if (/HIGH|🔴/i.test(bundleLabel)) bundleClass = 'val-danger';
+    else if (/MEDIUM|🟡/i.test(bundleLabel)) bundleClass = 'val-warn';
+    let compressedBundleLabel = bundleLabel;
+    if (/HIGH|🔴/i.test(bundleLabel)) {
+      const sniperMatch = bundleLabel.match(/(\d+)\s*snipers?/i);
+      compressedBundleLabel = sniperMatch ? `🔴 HIGH (${sniperMatch[1]})` : '🔴 HIGH';
+    } else if (/MEDIUM|🟡/i.test(bundleLabel)) compressedBundleLabel = '🟡 MED RISK';
+    else if (/NO OBVIOUS|✅/i.test(bundleLabel)) compressedBundleLabel = '✅ CLEAN';
+    else if (/UNAVAILABLE|Volume too high|N\/A/i.test(bundleLabel)) compressedBundleLabel = '⚠️ N/A';
+    const top10str = dbToken.top10pct != null ? Math.round(dbToken.top10pct) + '%' : 'N/A';
+    rc = risk >= 70 ? 'risk-high' : risk >= 40 ? 'risk-mid' : 'risk-low';
+    flags = [
+      { k: 'Freezable', v: fz ? '🚨 YES' : '✅ NO', c: fz ? 'val-danger' : 'val-safe' },
+      { k: 'Mutable', v: mu ? '🚨 YES' : '✅ NO', c: mu ? 'val-danger' : 'val-safe' },
+      { k: 'Top 10', v: top10str, c: (dbToken.top10pct != null && dbToken.top10pct > 80) ? 'val-danger' : (dbToken.top10pct != null && dbToken.top10pct > 50) ? 'val-warn' : 'val-safe' },
+      { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
+      { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
+    ];
+  } else if(isEVM){
     const chainId=isBase?'8453':'1';
     chain=isBase?'BASE':'ETH';
     const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
@@ -549,11 +580,15 @@ async function getScanResultHtml(ca){
     const key=Object.keys(data.result||{})[0];
     const sd=data.result?.[key];
     if(!sd)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:var(--muted);text-align:center;">Token not found.</div></div>';
-    const fz=sd.freezable?.status==='1',mu=sd.balance_mutable_authority?.status==='1',cl=sd.closable?.status==='1';
+    let fz=sd.freezable?.status==='1', mu=sd.balance_mutable_authority?.status==='1', cl=sd.closable?.status==='1';
+    const mintAuth=sd.metadata?.mint_authority;
+    const metaMut=sd.metadata?.mutable==='1';
+    if(metaMut)mu=true;
     const topH=sd.top_holders||[];
     const top10=Math.round(topH.slice(0,10).reduce((s,h)=>s+parseFloat(h.percent||0),0));
     const meta=sd.metadata||{};name=meta.name||'Unknown';sym=meta.symbol||'?';
     if(fz)risk+=35;if(mu)risk+=30;if(cl)risk+=20;if(top10>80)risk+=25;else if(top10>50)risk+=10;
+    if(mintAuth)risk+=30;if(metaMut)risk+=20;
     let bundleLabel='—',bundleClass='val-safe',bundleRiskAdd=0;
     try{
       const apiBase='https://rugcopbot-production.up.railway.app';
