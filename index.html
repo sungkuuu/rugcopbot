@@ -531,37 +531,7 @@ async function getScanResultHtml(ca){
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
 
-  const dbToken = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
-  if (dbToken) {
-    risk = dbToken.risk;
-    name = dbToken.name || 'Unknown';
-    sym = dbToken.symbol || '?';
-    chain = dbToken.chain || 'SOL';
-    const flagsArr = typeof dbToken.flags === 'string' ? (() => { try { return JSON.parse(dbToken.flags || '[]'); } catch(e) { return []; } })() : (dbToken.flags || []);
-    const fz = flagsArr.includes('FREEZABLE') || flagsArr.includes('FREEZE_AUTHORITY');
-    const mu = flagsArr.includes('MUTABLE') || flagsArr.includes('MUTABLE_METADATA');
-    const cl = flagsArr.includes('CLOSABLE');
-    let bundleLabel = dbToken.bundle_label || 'N/A';
-    let bundleClass = 'val-safe';
-    if (/HIGH|🔴/i.test(bundleLabel)) bundleClass = 'val-danger';
-    else if (/MEDIUM|🟡/i.test(bundleLabel)) bundleClass = 'val-warn';
-    let compressedBundleLabel = bundleLabel;
-    if (/HIGH|🔴/i.test(bundleLabel)) {
-      const sniperMatch = bundleLabel.match(/(\d+)\s*snipers?/i);
-      compressedBundleLabel = sniperMatch ? `🔴 HIGH (${sniperMatch[1]})` : '🔴 HIGH';
-    } else if (/MEDIUM|🟡/i.test(bundleLabel)) compressedBundleLabel = '🟡 MED RISK';
-    else if (/NO OBVIOUS|✅/i.test(bundleLabel)) compressedBundleLabel = '✅ CLEAN';
-    else if (/UNAVAILABLE|Volume too high|N\/A/i.test(bundleLabel)) compressedBundleLabel = '⚠️ N/A';
-    const top10str = dbToken.top10pct != null ? Math.round(dbToken.top10pct) + '%' : 'N/A';
-    rc = risk >= 70 ? 'risk-high' : risk >= 40 ? 'risk-mid' : 'risk-low';
-    flags = [
-      { k: 'Freezable', v: fz ? '🚨 YES' : '✅ NO', c: fz ? 'val-danger' : 'val-safe' },
-      { k: 'Mutable', v: mu ? '🚨 YES' : '✅ NO', c: mu ? 'val-danger' : 'val-safe' },
-      { k: 'Top 10', v: top10str, c: (dbToken.top10pct != null && dbToken.top10pct > 80) ? 'val-danger' : (dbToken.top10pct != null && dbToken.top10pct > 50) ? 'val-warn' : 'val-safe' },
-      { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
-      { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
-    ];
-  } else if(isEVM){
+  if(isEVM){
     const chainId=isBase?'8453':'1';
     chain=isBase?'BASE':'ETH';
     const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
@@ -574,6 +544,38 @@ async function getScanResultHtml(ca){
     risk=hp?99:mt?85:(bt>10||st>10)?65:15;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
     flags=[{k:'Honeypot',v:hp?'🚨 YES':'✅ NO',c:hp?'val-danger':'val-safe'},{k:'Mintable',v:mt?'🚨 YES':'✅ NO',c:mt?'val-danger':'val-safe'},{k:'Buy Tax',v:bt+'%',c:bt>10?'val-warn':'val-safe'},{k:'Sell Tax',v:st+'%',c:st>10?'val-warn':'val-safe'}];
   }else{
+    // SOL — local memory is single source of truth
+    const dbToken = allTokens.find(t => t.ca === ca);
+    if (dbToken) {
+      risk = dbToken.risk;
+      name = dbToken.name || 'Unknown';
+      sym = dbToken.symbol || '?';
+      chain = dbToken.chain || 'SOL';
+      const flagsArr = (() => { try { return JSON.parse(dbToken.flags || '[]'); } catch(e) { return []; } })();
+      const fz = flagsArr.includes('FREEZABLE') || flagsArr.includes('FREEZE_AUTHORITY');
+      const mu = flagsArr.includes('MUTABLE') || flagsArr.includes('MUTABLE_METADATA');
+      const cl = flagsArr.includes('CLOSABLE');
+      let bundleLabel = dbToken.bundleLabel || dbToken.bundle_label || 'N/A';
+      let bundleClass = 'val-safe';
+      if (/HIGH|🔴/i.test(bundleLabel)) bundleClass = 'val-danger';
+      else if (/MEDIUM|🟡/i.test(bundleLabel)) bundleClass = 'val-warn';
+      let compressedBundleLabel = bundleLabel;
+      if (/HIGH|🔴/i.test(bundleLabel)) {
+        const sniperMatch = bundleLabel.match(/(\d+)\s*snipers?/i);
+        compressedBundleLabel = sniperMatch ? `🔴 HIGH (${sniperMatch[1]})` : '🔴 HIGH';
+      } else if (/MEDIUM|🟡/i.test(bundleLabel)) compressedBundleLabel = '🟡 MED RISK';
+      else if (/NO OBVIOUS|✅/i.test(bundleLabel)) compressedBundleLabel = '✅ CLEAN';
+      else if (/UNAVAILABLE|Volume too high|N\/A/i.test(bundleLabel)) compressedBundleLabel = '⚠️ N/A';
+      const top10str = dbToken.top10pct != null ? Math.round(dbToken.top10pct) + '%' : 'N/A';
+      rc = risk >= 70 ? 'risk-high' : risk >= 40 ? 'risk-mid' : 'risk-low';
+      flags = [
+        { k: 'Freezable', v: fz ? '🚨 YES' : '✅ NO', c: fz ? 'val-danger' : 'val-safe' },
+        { k: 'Mutable', v: mu ? '🚨 YES' : '✅ NO', c: mu ? 'val-danger' : 'val-safe' },
+        { k: 'Top 10', v: top10str, c: (dbToken.top10pct != null && dbToken.top10pct > 80) ? 'val-danger' : (dbToken.top10pct != null && dbToken.top10pct > 50) ? 'val-warn' : 'val-safe' },
+        { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
+        { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
+      ];
+    } else {
     chain='SOL';
     const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
     const data=await res.json();
@@ -622,6 +624,7 @@ async function getScanResultHtml(ca){
     risk=Math.min(99,risk+bundleRiskAdd);
     rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
     flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:compressedBundleLabel,c:bundleClass,title:detailedMsg}];
+    }
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
   const isSolChain=chain==='SOL';

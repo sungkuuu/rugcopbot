@@ -909,27 +909,60 @@ async function runScanInChat(chatId, contractAddress) {
           `💡 On-chain analysis complete. Tap below to snipe.`;
       }
     } else {
+      // SOL — database is single source of truth; bypass GoPlus and bundle scan if we have the token
+      let dbToken = null;
+      if (process.env.DATABASE_URL) {
+        try {
+          const res = await pool.query('SELECT * FROM tokens WHERE ca = $1 LIMIT 1', [contractAddress]);
+          if (res.rows.length > 0) dbToken = res.rows[0];
+        } catch (e) {}
+      } else {
+        const localToken = loadRugs().find(r => r.ca === contractAddress);
+        if (localToken) dbToken = localToken;
+      }
+
+      if (dbToken) {
+        const finalRisk = dbToken.risk;
+        const flags = typeof dbToken.flags === 'string' ? (() => { try { return JSON.parse(dbToken.flags || '[]'); } catch (e) { return []; } })() : (dbToken.flags || []);
+        const isMutable = flags.includes('MUTABLE') || flags.includes('MUTABLE_METADATA');
+        const isFreezable = flags.includes('FREEZE_AUTHORITY') || flags.includes('FREEZABLE');
+        const isClosable = flags.includes('CLOSABLE');
+        const bundleLabel = dbToken.bundle_label || 'N/A';
+        const mutStr = isMutable ? '🚨 YES' : '✅ NO';
+        const frzStr = isFreezable ? '🚨 YES' : '✅ NO';
+        const clStr = isClosable ? '🚨 YES' : '✅ NO';
+        const top10str = 'N/A (Hidden in Pool/Curve)';
+        const aiAudit = await getAIAudit('SOLANA_TOKEN', {}, bundleLabel, finalRisk);
+        resultMsg =
+          `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
+          `⛓️ <b>Chain:</b> Solana\n` +
+          `🪙 <b>Token:</b> ${dbToken.name || '?'} (${dbToken.symbol || '?'})\n` +
+          `📍 <b>Address:</b> <code>${contractAddress}</code>\n\n` +
+          `📊 <b>Risk:</b> ${finalRisk}%\n\n` +
+          `⚖️ <b>Balance Mutable:</b> ${mutStr}\n` +
+          `🧊 <b>Freezable:</b> ${frzStr}\n` +
+          `🗑️ <b>Closable:</b> ${clStr}\n` +
+          `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
+          `🔗 <b>Bundle Scan:</b> ${bundleLabel}\n\n` +
+          `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
+          `💡 On-chain analysis complete. Tap below to snipe.`;
+      } else {
       const res  = await fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${contractAddress}`);
       const data = await res.json();
       const key  = Object.keys(data.result || {})[0];
       if (data.code === 1 && data.result && key) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
+
         const top10str = 'N/A (Hidden in Pool/Curve)';
-        let bundleRisk;
-        if (process.env.DATABASE_URL) {
-          try {
-            const row = await pool.query('SELECT bundle_label, bundle_risk_add FROM tokens WHERE ca = $1 LIMIT 1', [contractAddress]);
-            if (row.rows[0]?.bundle_label != null && row.rows[0].bundle_label !== '') {
-              bundleRisk = { label: row.rows[0].bundle_label, riskAdd: row.rows[0].bundle_risk_add ?? 0 };
-            }
-          } catch (e) { /* ignore */ }
-        }
-        if (!bundleRisk) bundleRisk = await detectSniperBundle(contractAddress);
+        const bundleRisk = await detectSniperBundle(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
         const baseRisk = calcRisk(sd, 'SOL');
         const finalRisk = Math.min(99, baseRisk + bundleRiskAdd);
+        const mutStr = sd.balance_mutable_authority?.status === '1' ? '🚨 YES' : '✅ NO';
+        const frzStr = sd.freezable?.status === '1' ? '🚨 YES' : '✅ NO';
+        const clStr = sd.closable?.status === '1' ? '🚨 YES' : '✅ NO';
         const aiAudit = await getAIAudit('SOLANA_TOKEN', sd, bundleLabel, finalRisk);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
@@ -937,15 +970,16 @@ async function runScanInChat(chatId, contractAddress) {
           `🪙 <b>Token:</b> ${meta.name || "?"} (${meta.symbol || "?"})\n` +
           `📍 <b>Address:</b> <code>${contractAddress}</code>\n\n` +
           `📊 <b>Risk:</b> ${finalRisk}%\n\n` +
-          `⚖️ <b>Balance Mutable:</b> ${sd.balance_mutable_authority?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
-          `🧊 <b>Freezable:</b> ${sd.freezable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
-          `🗑️ <b>Closable:</b> ${sd.closable?.status === "1" ? "🚨 YES" : "✅ NO"}\n` +
+          `⚖️ <b>Balance Mutable:</b> ${mutStr}\n` +
+          `🧊 <b>Freezable:</b> ${frzStr}\n` +
+          `🗑️ <b>Closable:</b> ${clStr}\n` +
           `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
           `🔗 <b>Bundle Scan:</b> ${bundleLabel}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
       } else {
         resultMsg = `❌ Token not found on Solana.`;
+      }
       }
     }
 
