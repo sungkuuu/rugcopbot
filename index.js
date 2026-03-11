@@ -592,6 +592,10 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
     };
 
+    if (bundleRisk.riskAdd >= 30) {
+      await saveRug({ ...rugPayload, type: 'danger' });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+    }
     if (risk >= 70 && volume24h >= 5000) {
       await saveRug({ ...rugPayload, type: 'danger' });
       await tweetAlert({ ...rugPayload, volume24h, marketCap });
