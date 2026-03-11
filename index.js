@@ -327,8 +327,17 @@ async function detectSniperBundle(ca) {
   if (!ca || !HELIUS_API_KEY) return { label: 'N/A', riskAdd: 0 };
   try {
     // Step 1: 시그니처 수 사전 체크
-    const sigs = await heliusRpc('getSignaturesForAddress', [ca, { limit: 1000 }]);
-    const signatures = Array.isArray(sigs) ? sigs : [];
+    const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
+    const txRes = await fetch(
+      `https://api.helius.xyz/v0/addresses/${PUMP_FUN_PROGRAM}/transactions?api-key=${HELIUS_API_KEY}&limit=100`,
+      { method: 'GET' }
+    );
+    const txData = await txRes.json();
+    const allTxs = Array.isArray(txData) ? txData : [];
+    const signatures = allTxs
+      .filter(tx => JSON.stringify(tx).includes(ca))
+      .map(tx => tx.signature)
+      .filter(Boolean);
     console.log(`[Bundle] CA: ${ca}`);
     console.log(`[Bundle] Total signatures: ${signatures.length}`);
     if (signatures.length >= 200) {
