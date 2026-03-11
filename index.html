@@ -546,8 +546,7 @@ async function getScanResultHtml(ca){
   const isBase=isEVM&&(chainSelect==='base');
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
-
-  if(isEVM){
+  let volumeMcapToken=null;
     const chainId=isBase?'8453':'1';
     chain=isBase?'BASE':'ETH';
     const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
@@ -591,6 +590,7 @@ async function getScanResultHtml(ca){
         { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
         { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
       ];
+      volumeMcapToken = dbToken;
     } else {
     chain='SOL';
     const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
@@ -656,6 +656,18 @@ async function getScanResultHtml(ca){
     logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
   }catch(e){}
   const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
+  // Extract and format Volume and MCap
+  const vol = volumeMcapToken ? (volumeMcapToken.volume24h || 0) : 0;
+  const mcap = volumeMcapToken ? (volumeMcapToken.marketCap || volumeMcapToken.market_cap || 0) : 0;
+  const formatUsd = (val) => {
+    const n = Number(val);
+    if (!n || isNaN(n) || n === 0) return 'N/A';
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+    return '$' + n.toFixed(0);
+  };
+  flags.push({ k: 'Vol 24h', v: formatUsd(vol), c: 'val-safe' });
+  flags.push({ k: 'MCap', v: formatUsd(mcap), c: 'val-safe' });
   return`<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"${f.title!=null?` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
