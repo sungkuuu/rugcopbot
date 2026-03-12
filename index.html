@@ -308,11 +308,11 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 
 <div class="filter-bar">
   <div class="filter-left">
-    <button class="filter-btn active" onclick="setFilter('all',this)">ALL</button>
-    <button class="filter-btn" onclick="setFilter('danger',this)">🚨 HIGH RISK</button>
-    <button class="filter-btn" onclick="setFilter('safe',this)">✅ LOOKS SAFE</button>
-    <button class="filter-btn" onclick="setFilter('sol',this)">◎ SOLANA</button>
-    <button class="filter-btn" onclick="setFilter('eth',this)">⬡ ETHEREUM</button>
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">ALL</button>
+    <button class="filter-btn" data-filter="danger" onclick="setFilter('danger',this)">🚨 HIGH RISK</button>
+    <button class="filter-btn" data-filter="safe" onclick="setFilter('safe',this)">✅ LOOKS SAFE</button>
+    <button class="filter-btn" data-filter="sol" onclick="setFilter('sol',this)">◎ SOLANA</button>
+    <button class="filter-btn" data-filter="eth" onclick="setFilter('eth',this)">⬡ ETHEREUM</button>
   </div>
   <div class="filter-right" id="filterCount">LOADING...</div>
 </div>
@@ -501,7 +501,10 @@ function renderGrid(){
   });
   document.getElementById('filterCount').textContent=data.length+' TOKENS';
   if(!data.length){grid.innerHTML='<div class="empty-state">NO TOKENS IN THIS FILTER YET — MONITORING LIVE...</div>';return;}
-  grid.innerHTML=data.slice(0,40).map(buildCard).join('');
+  // Safe tab: show up to 1000 accumulated gems; other tabs cap at 100 to limit DOM work
+  const isSafeTab = document.querySelector('.filter-btn.safe-active') != null || currentFilter === 'safe';
+  const maxItems = isSafeTab ? 1000 : 100;
+  grid.innerHTML=data.slice(0, maxItems).map(buildCard).join('');
 }
 
 async function loadFeed(){

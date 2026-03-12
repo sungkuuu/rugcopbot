@@ -713,7 +713,18 @@ app.post('/webhook/helius', async (req, res) => {
 app.get('/api/recent-rugs', async (req, res) => {
   if (process.env.DATABASE_URL) {
     try {
-      const result = await pool.query('SELECT * FROM tokens ORDER BY created_at DESC LIMIT 50');
+      // Two-track: latest 100 live feed + all gems (risk <= 30) so safe tab never loses tokens
+      const result = await pool.query(`
+        (
+          SELECT * FROM tokens ORDER BY id DESC LIMIT 100
+        )
+        UNION
+        (
+          SELECT * FROM tokens WHERE COALESCE(risk, 100) <= 30
+        )
+        ORDER BY id DESC
+        LIMIT 1000
+      `);
       const rows = result.rows.map(r => ({
         ...r,
         marketCap: r.market_cap,
@@ -729,7 +740,13 @@ app.get('/api/recent-rugs', async (req, res) => {
   }
   const rugs = loadRugs();
   const sorted = rugs.slice().sort((a, b) => (b.time || 0) - (a.time || 0));
-  const limited = sorted.slice(0, 50);
+  const latest100 = sorted.slice(0, 100);
+  const gems = sorted.filter(r => (r.risk != null && r.risk <= 30));
+  const byCa = new Map();
+  latest100.forEach(r => byCa.set(r.ca, r));
+  gems.forEach(r => { if (!byCa.has(r.ca)) byCa.set(r.ca, r); });
+  const combined = Array.from(byCa.values()).sort((a, b) => (b.time || 0) - (a.time || 0));
+  const limited = combined.slice(0, 1000);
   const formatted = limited.map(r => ({
     ...r,
     timeAgo: getTimeAgo(r.time),
