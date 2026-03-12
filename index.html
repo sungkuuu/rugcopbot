@@ -546,6 +546,7 @@ async function getScanResultHtml(ca){
   const isBase=isEVM&&(chainSelect==='base');
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
+  if (isEVM) {
     const chainId=isBase?'8453':'1';
     chain=isBase?'BASE':'ETH';
     const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
@@ -557,7 +558,7 @@ async function getScanResultHtml(ca){
     const bt=Math.round((sd.buy_tax||0)*100),st=Math.round((sd.sell_tax||0)*100);
     risk=hp?99:mt?85:(bt>10||st>10)?65:15;rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
     flags=[{k:'Honeypot',v:hp?'🚨 YES':'✅ NO',c:hp?'val-danger':'val-safe'},{k:'Mintable',v:mt?'🚨 YES':'✅ NO',c:mt?'val-danger':'val-safe'},{k:'Buy Tax',v:bt+'%',c:bt>10?'val-warn':'val-safe'},{k:'Sell Tax',v:st+'%',c:st>10?'val-warn':'val-safe'}];
-  }else{
+  } else {
     // SOL — local memory is single source of truth
     const dbToken = allTokens.find(t => t.ca === ca);
     if (dbToken) {
