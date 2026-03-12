@@ -937,7 +937,11 @@ async function runScanInChat(chatId, contractAddress) {
       if (dbToken) {
         const lbl = dbToken.bundle_label || dbToken.bundleLabel || '';
         if (/unavailable|high volume|n\/a/i.test(lbl)) {
-          dbToken = null;
+          // DO NOT nullify dbToken. Keep the mutable/freezable flags from Helius!
+          // Just refetch the bundle live.
+          const liveBundle = await detectSniperBundle(contractAddress);
+          dbToken.bundle_label = liveBundle.label;
+          dbToken.risk = Math.min(99, (dbToken.risk || 0) + (liveBundle.riskAdd || 0));
         }
       }
 

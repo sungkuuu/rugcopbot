@@ -649,29 +649,44 @@ async function getScanResultHtml(ca){
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   let logoImg = '';
+  let liveVol = 0, liveMcap = 0;
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
     const pair = dexData.pairs?.[0];
     if (pair) {
-      const logoUrl = pair.info?.imageUrl || null;
+      const logoUrl = pair.info?.imageUrl;
       if (logoUrl) logoImg = `<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`;
-      const liveVol = Number(pair.volume?.h24 || 0);
-      const liveMcap = Number(pair.fdv || pair.marketCap || 0);
-      const formatUsd = (n) => {
-        if (isNaN(n) || n === 0) return 'N/A';
-        if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
-        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-        return '$' + n.toFixed(0);
-      };
-      flags = flags.filter(f => f.k !== 'Vol 24h' && f.k !== 'MCap');
-      flags.push({ k: 'Vol 24h', v: formatUsd(liveVol), c: 'val-safe' });
-      flags.push({ k: 'MCap', v: formatUsd(liveMcap), c: 'val-safe' });
+      liveVol = Number(pair.volume?.h24 || 0);
+      liveMcap = Number(pair.fdv || pair.marketCap || 0);
     }
   } catch (e) {}
-  return`<div class="result-card">
+
+  const formatUsd = (n) => {
+    if (isNaN(n) || n === 0) return 'N/A';
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+    return '$' + n.toFixed(0);
+  };
+
+  const dbToken = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
+  const finalVol = (dbToken && Number(dbToken.volume24h) > 0) ? Number(dbToken.volume24h) : liveVol;
+  const finalMcap = (dbToken && Number(dbToken.marketCap || dbToken.market_cap) > 0) ? Number(dbToken.marketCap || dbToken.market_cap) : liveMcap;
+
+  flags = flags.filter(f => f.k !== 'Vol 24h' && f.k !== 'MCap');
+  flags.push({ k: 'Vol 24h', v: formatUsd(finalVol), c: 'val-safe' });
+  flags.push({ k: 'MCap', v: formatUsd(finalMcap), c: 'val-safe' });
+
+  const caEsc = JSON.stringify(ca_addr);
+  const caBox = `<div style="margin: 15px 0; padding: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'" onclick="navigator.clipboard.writeText(${caEsc}); this.lastElementChild.innerText='✅ Copied!'; setTimeout(()=>this.lastElementChild.innerText='📋 Copy CA', 2000);">
+    <span style="font-family: monospace; font-size: 14px; color: #fff; word-break: break-all; font-weight: 500;">${ca_addr}</span>
+    <span style="font-size: 12px; color: #fff; margin-left: 10px; white-space: nowrap; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">📋 Copy CA</span>
+  </div>`;
+
+  return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
-    <div class="result-flags">${flags.map(f=>`<div class="rflag"${f.title!=null?` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    ${caBox}
+    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
   </div>`;
