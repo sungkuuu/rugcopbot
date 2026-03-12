@@ -191,6 +191,53 @@ function isBundleLabelUnverified(label) {
   return /unavailable|high volume|n\/a/i.test(s);
 }
 
+/**
+ * Unified bundle scan getter (web + telegram + API).
+ * - If DB has a verified label, reuse it.
+ * - If label is missing/unverified, refresh via Helius-based detectSniperBundle.
+ * - Returns { label, riskAdd, flags }.
+ */
+async function getBundleRisk(ca) {
+  if (!ca) return { label: 'N/A', riskAdd: 0, flags: [] };
+
+  // 1) DB cache (if available)
+  if (process.env.DATABASE_URL) {
+    try {
+      const row = await pool.query('SELECT bundle_label, bundle_risk_add FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+      const existing = row.rows[0];
+      const label = existing?.bundle_label;
+      const riskAdd = Number(existing?.bundle_risk_add || 0);
+      if (label && !isBundleLabelUnverified(label)) {
+        return { label, riskAdd, flags: [] };
+      }
+    } catch (e) {
+      // fall through to live scan
+    }
+  }
+
+  // 2) Live scan
+  const live = await detectSniperBundle(ca);
+  const result = {
+    label: live?.label || 'N/A',
+    riskAdd: Number(live?.riskAdd || 0),
+    flags: Array.isArray(live?.flags) ? live.flags : []
+  };
+
+  // 3) Persist refreshed bundle label when possible
+  if (process.env.DATABASE_URL) {
+    try {
+      await pool.query(
+        `UPDATE tokens
+         SET bundle_label = $2, bundle_risk_add = $3
+         WHERE ca = $1`,
+        [ca, result.label, result.riskAdd]
+      );
+    } catch (e) {}
+  }
+
+  return result;
+}
+
 async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
 
@@ -446,55 +493,9 @@ async function processNewToken(ca, name, symbol) {
   let risk, flags, meta;
 
   if (!sd) {
-    // GoPlus 데이터 없을 때 Helius DAS로 실제 데이터 확인
-    try {
-      const assetRes = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAsset', params: { id: ca } })
-      });
-      const assetData = await assetRes.json();
-      const asset = assetData.result;
-
-      let logo = asset?.content?.links?.image || asset?.content?.files?.[0]?.uri || null;
-
-      let risk = 30;
-      let flags = [];
-
-      // 민팅 권한 있으면 위험
-      if (asset?.mint_extensions || asset?.token_info?.mint_authority) {
-        risk += 30; flags.push('MINT_AUTHORITY');
-      }
-      // 프리즈 권한 있으면 위험
-      if (asset?.token_info?.freeze_authority) {
-        risk += 25; flags.push('FREEZE_AUTHORITY');
-      }
-      // 메타데이터 뮤터블이면 위험
-      if (asset?.mutable === true) {
-        risk += 20; flags.push('MUTABLE_METADATA');
-      }
-
-      const name = asset?.content?.metadata?.name || 'Unknown';
-      const symbol = asset?.content?.metadata?.symbol || '???';
-
-      const bundleRisk = await detectSniperBundle(ca);
-      risk += (bundleRisk.riskAdd || 0);
-      if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
-      risk = Math.min(risk, 99);
-
-      if (risk > 30 && risk < 50) return; // 중간 위험은 스킵
-
-      if (risk <= 30 || risk >= 50) {
-        const finalRisk = Math.min(99, risk);
-        const rugPayload = { ca, name, symbol, chain: 'SOL', risk: finalRisk, flags, logo: logo ?? null, bundle_label: bundleRisk.label, bundle_risk_add: bundleRisk.riskAdd ?? 0 };
-        await saveRug(rugPayload);
-        if (risk >= 80) await tweetAlert({ ...rugPayload, bundle_label: bundleRisk.label });
-        if (risk <= 30 && !isBundleLabelUnverified(bundleRisk.label)) await tweetAlert({ ...rugPayload, bundle_label: bundleRisk.label });
-      }
-      return;
-    } catch(e) {
-      return; // 데이터 없으면 스킵 (75% 고정 제거)
-    }
+    // GoPlus 응답이 비거나 실패한 토큰은 저장 스킵 (빈 데이터로 SAFE 표시 방지)
+    console.log(`⏭️ ${symbol || '?'} - GoPlus empty/fail for ${ca}, skipping DB save`);
+    return;
   }
 
   risk  = calcRisk(sd, 'SOL');
@@ -502,7 +503,7 @@ async function processNewToken(ca, name, symbol) {
   meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
-  const bundleRisk = await detectSniperBundle(ca);
+  const bundleRisk = await getBundleRisk(ca);
   risk += (bundleRisk.riskAdd || 0);
   if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
   risk = Math.min(risk, 99);
@@ -572,7 +573,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
 
-    const bundleRisk = await detectSniperBundle(ca);
+    const bundleRisk = await getBundleRisk(ca);
     risk += (bundleRisk.riskAdd || 0);
     if (bundleRisk.flags && bundleRisk.flags.length) flags.push(...bundleRisk.flags);
 
@@ -591,6 +592,8 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     if (risk < 10) risk = 10;
     const finalRisk = Math.min(99, risk);
+    console.log('[scanOneSolanaToken] flags:', flags);
+    console.log('[scanOneSolanaToken] final risk_score:', finalRisk);
 
     const meta = sd.metadata || {};
     let name = meta.name || tokenMeta.name || tokenMeta.description;
@@ -797,13 +800,7 @@ app.get('/api/solana-bundle', async (req, res) => {
   const ca = req.query.ca;
   if (!ca) return res.json({ label: 'N/A' });
   try {
-    if (process.env.DATABASE_URL) {
-      const row = await pool.query('SELECT bundle_label, bundle_risk_add FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
-      if (row.rows[0]?.bundle_label) {
-        return res.json({ label: row.rows[0].bundle_label, riskAdd: row.rows[0].bundle_risk_add ?? 0 });
-      }
-    }
-    const result = await detectSniperBundle(ca);
+    const result = await getBundleRisk(ca);
     res.json(result);
   } catch (e) {
     console.error('[Bundle] Error:', e.message);
@@ -973,12 +970,11 @@ async function runScanInChat(chatId, contractAddress) {
 
       if (dbToken) {
         const lbl = dbToken.bundle_label || dbToken.bundleLabel || '';
-        if (/unavailable|high volume|n\/a/i.test(lbl)) {
-          // DO NOT nullify dbToken. Keep the mutable/freezable flags from Helius!
-          // Just refetch the bundle live.
-          const liveBundle = await detectSniperBundle(contractAddress);
+        if (isBundleLabelUnverified(lbl) || !lbl) {
+          // Just refetch the bundle live (unified logic + DB update if available).
+          const liveBundle = await getBundleRisk(contractAddress);
           dbToken.bundle_label = liveBundle.label;
-          dbToken.risk = Math.min(99, (dbToken.risk || 0) + (liveBundle.riskAdd || 0));
+          // Avoid double-counting risk here; dbToken.risk may already include bundle_risk_add from prior scans.
         }
       }
 
@@ -1016,7 +1012,7 @@ async function runScanInChat(chatId, contractAddress) {
         const meta    = sd.metadata || {};
 
         const top10str = 'N/A (Hidden in Pool/Curve)';
-        const bundleRisk = await detectSniperBundle(contractAddress);
+        const bundleRisk = await getBundleRisk(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
         const baseRisk = calcRisk(sd, 'SOL');
