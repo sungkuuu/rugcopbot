@@ -419,12 +419,17 @@ function getImgBg(risk){
 
 function buildCard(t){
   const isHigh=t.risk>=75, isSafe=t.risk<=30;
-  const logo=t.logo||null;
+  const logoUrl=t.logo_url||t.logo||'';
   const marketCap=t.marketCap||t.market_cap||0;
   const volume24h=t.volume24h||0;
   const initials=(t.symbol&&t.symbol!=='???'?t.symbol.replace('$','').slice(0,3):t.name?t.name.slice(0,2):'??').toUpperCase();
-  const imgContent=logo?`<img src="${String(logo).replace(/"/g,'&quot;')}" loading="lazy" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1" onerror="this.style.display='none'" onload="if(this.nextElementSibling)this.nextElementSibling.style.display='none'">`:'';
-  const fallback=`<div style="font-family:'Orbitron',sans-serif;font-size:22px;color:rgba(255,255,255,0.15);position:relative;z-index:1;font-weight:700;letter-spacing:0.05em">${initials}</div>`;
+  const firstChar=String((t.name||t.symbol||'?')||'?')[0].toUpperCase();
+  const imgContent=`<img src="${String(logoUrl).replace(/"/g,'&quot;')}"
+        onerror="this.onerror=null; this.style.display='none'; this.parentElement.querySelector('.token-initial')?.style.setProperty('display','flex')"
+   style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1">`;
+  const fallback=`<div class="token-initial" style="display:${logoUrl ? 'none' : 'flex'}; width:60px; height:60px; background:#222; border-radius:50%; align-items:center; justify-content:center; font-size:18px; font-weight:bold; position:relative; z-index:1;">
+     ${firstChar}
+   </div>`;
   const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
   const cardCls=isSafe?' safe-card':'';
   const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
@@ -450,7 +455,8 @@ function buildCard(t){
   return`<div class="token-card${cardCls}" onclick="openCardModal('${caOnclick}')">
   <div class="tc-img" style="background:var(--bg2)">
     <div style="position:absolute;inset:0;${imgBg}"></div>
-    ${imgContent}${fallback}
+    ${imgContent}
+    ${fallback}
     <div class="tc-img-overlay"></div>
     <span class="tc-chain">${chain}</span>
     <span class="tc-risk-badge ${badgeCls}">${t.risk}%</span>
@@ -514,12 +520,12 @@ async function loadFeed(){
     allTokens=Array.isArray(json)?json:[];
     // Fetch logos from DexScreener in background
     allTokens.forEach(async(t)=>{
-      if(!t.ca||t.logo)return;
+      if(!t.ca||t.logo_url||t.logo)return;
       try{
         const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.ca}`);
         const d=await r.json();
         const logo=d.pairs?.[0]?.info?.imageUrl;
-        if(logo){t.logo=logo;renderGrid();}
+        if(logo){t.logo_url=logo;t.logo=logo;renderGrid();}
       }catch(e){}
     });
     renderGrid();
@@ -658,6 +664,7 @@ async function getScanResultHtml(ca){
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
+    console.log(JSON.stringify(dexData, null, 2));
     const pair = dexData.pairs?.[0];
     if (pair) {
       finalLogoUrl = pair.info?.imageUrl || pair.baseToken?.logoURI || pair.quoteToken?.logoURI || '/logo.png';
