@@ -546,7 +546,6 @@ async function getScanResultHtml(ca){
   const isBase=isEVM&&(chainSelect==='base');
   if(!isEVM&&!isSol)return'<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Invalid address.</div></div>';
   let name='Unknown',sym='?',risk=0,rc='risk-low',flags=[],chain='',ca_addr=ca;
-  let volumeMcapToken=null;
     const chainId=isBase?'8453':'1';
     chain=isBase?'BASE':'ETH';
     const res=await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=`+ca);
@@ -590,7 +589,6 @@ async function getScanResultHtml(ca){
         { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
         { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
       ];
-      volumeMcapToken = dbToken;
     } else {
     chain='SOL';
     const res=await fetch('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses='+ca);
@@ -656,12 +654,13 @@ async function getScanResultHtml(ca){
     logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
   }catch(e){}
   const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
-  // Extract and format Volume and MCap safely
+  // Volume/MCap from allTokens (safe, in scope)
+  const tokenData = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
   let volStr = 'N/A';
   let mcapStr = 'N/A';
-  if (volumeMcapToken) {
-    const vol = Number(volumeMcapToken.volume24h);
-    const mcap = Number(volumeMcapToken.marketCap || volumeMcapToken.market_cap);
+  if (tokenData) {
+    const vol = Number(tokenData.volume24h);
+    const mcap = Number(tokenData.marketCap || tokenData.market_cap);
     if (!isNaN(vol) && vol > 0) {
       volStr = vol >= 1e6 ? '$' + (vol / 1e6).toFixed(1) + 'M' : vol >= 1e3 ? '$' + (vol / 1e3).toFixed(1) + 'K' : '$' + vol.toFixed(0);
     }
