@@ -357,8 +357,15 @@ async function getTokenMeta(ca) {
     });
     const data = await res.json();
     const meta = data.result?.content?.metadata;
-    return { name: meta?.name || 'Unknown', symbol: meta?.symbol || '???' };
-  } catch(e) { return { name: 'Unknown', symbol: '???' }; }
+    const links = data.result?.content?.links;
+    return {
+      name: meta?.name || 'Unknown',
+      symbol: meta?.symbol || '???',
+      image: links?.image || ''
+    };
+  } catch(e) {
+    return { name: 'Unknown', symbol: '???', image: '' };
+  }
 }
 
 async function heliusRpc(method, params) {
@@ -496,14 +503,14 @@ async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
   const sd = await scanSolanaToken(ca);
-  let risk = 15, flags = [], meta = {};
+  let risk = 50, flags = ['PENDING_GOPLUS'], meta = {};
 
   if (sd) {
     risk = calcRisk(sd, 'SOL');
     flags = getFlags(sd, 'SOL');
     meta = sd.metadata || {};
   } else {
-    console.log(`⚠️ ${symbol || '?'} - GoPlus failed/empty for ${ca}. Applying base risk and proceeding to bundle scan.`);
+    console.log(`⚠️ ${symbol || '?'} - GoPlus empty for ${ca}. Applying 50% caution risk.`);
   }
   if (risk < 10) risk = 10;
 
@@ -517,21 +524,17 @@ async function processNewToken(ca, name, symbol) {
     return;
   }
 
+  const metaFromHelius = await getTokenMeta(ca);
+
   const rug = {
     ca,
-    name:   meta.name   || name   || 'Unknown',
-    symbol: meta.symbol || symbol || '???',
+    name:   meta.name   || name   || metaFromHelius.name   || 'Unknown',
+    symbol: meta.symbol || symbol || metaFromHelius.symbol || '???',
     chain:  'SOL',
     risk,
     flags,
     time:   Date.now(),
   };
-
-  if (rug.name === 'Unknown' && (rug.symbol === '???' || rug.symbol == null)) {
-    const metaFromHelius = await getTokenMeta(ca);
-    rug.name = metaFromHelius.name;
-    rug.symbol = metaFromHelius.symbol;
-  }
 
   let logo = null;
   try {
@@ -540,6 +543,7 @@ async function processNewToken(ca, name, symbol) {
     logo = dexData.pairs?.[0]?.info?.imageUrl || null;
   } catch(e) {}
 
+  if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
