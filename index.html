@@ -899,6 +899,48 @@ function openCardModal(ca) {
       ${t.risk>=50?`<span class="result-buy disabled" style="background:var(--muted);color:rgba(255,255,255,0.3);border-color:var(--border);"><span class="btn-icon">🛑</span> Trading Disabled (High Risk)</span>`:`<a href="${getBananaLink(t.ca, t.chain || 'SOL')}" target="_blank" class="result-buy"><span class="btn-icon"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`}
     </div>
   </div>`;
+
+  // DexScreener 실시간 데이터로 모달 업데이트
+  if (t.ca) {
+    fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.ca}`)
+      .then(r => r.json())
+      .then(dex => {
+        const pair = dex.pairs?.[0];
+        if (!pair) return;
+        
+        // 거래량/MCap 업데이트
+        const formatUsd = (n) => {
+          n = Number(n);
+          if (!n || isNaN(n)) return 'N/A';
+          if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+          if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+          return '$' + n.toFixed(0);
+        };
+        // rflag-key 텍스트로 찾기 어려우니 data-field 속성으로 찾기
+        // Volume 24h rflag
+        const allRflags = content.querySelectorAll('.rflag');
+        allRflags.forEach(rf => {
+          const key = rf.querySelector('.rflag-key');
+          const val = rf.querySelector('.rflag-val');
+          if (!key || !val) return;
+          if (key.textContent.trim() === 'Volume 24h') {
+            const v = Number(pair.volume?.h24 || 0);
+            val.textContent = formatUsd(v);
+          }
+          if (key.textContent.trim() === 'MCap') {
+            const m = Number(pair.fdv || pair.marketCap || 0);
+            val.textContent = formatUsd(m);
+          }
+        });
+        
+        // 로고 업데이트
+        if (pair.info?.imageUrl) {
+          const img = content.querySelector('.result-header-left img');
+          if (img) img.src = pair.info.imageUrl;
+        }
+      })
+      .catch(() => {});
+  }
 }
 function closeCardModal(){
   document.getElementById('cardModalOverlay').classList.remove('show');
