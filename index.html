@@ -361,6 +361,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 <script>
 const API='https://rugcopbot-production.up.railway.app/api/recent-rugs';
 const STATS='https://rugcopbot-production.up.railway.app/api/stats';
+const TOKEN_INFO='https://rugcopbot-production.up.railway.app/api/token-info';
 let allTokens=[];
 let currentFilter='all';
 
@@ -663,18 +664,21 @@ async function getScanResultHtml(ca){
   let liveVol = 0, liveMcap = 0;
   let finalLogoUrl = '';
 
+  // Token logo from our server (token-profiles + tokens/v1 fallback); avoids slow/missing DexScreener indexing in browser
+  try {
+    const infoRes = await fetch(TOKEN_INFO + '?ca=' + encodeURIComponent(ca_addr));
+    if (infoRes.ok) {
+      const infoData = await infoRes.json();
+      if (infoData && infoData.imageUrl) finalLogoUrl = String(infoData.imageUrl).trim();
+    }
+  } catch (e) {}
+
+  // Vol / MCap still from DexScreener pair when available
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
-    console.log(JSON.stringify(dexData, null, 2));
     const pair = dexData.pairs?.[0];
     if (pair) {
-      finalLogoUrl =
-        pair.info?.imageUrl ||
-        pair.info?.header ||
-        pair.info?.openGraph ||
-        pair.baseToken?.logoURI ||
-        '';
       liveVol = Number(pair.volume?.h24 || 0);
       liveMcap = Number(pair.fdv || pair.marketCap || 0);
     }
