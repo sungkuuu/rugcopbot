@@ -648,28 +648,27 @@ async function getScanResultHtml(ca){
     :isSolChain
     ?`<a href="${getBananaLink(ca_addr,chain)}" target="_blank" class="result-buy"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</a>`
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
-  let logoUrl=null;
-  try{
-    const dexRes=await fetch('https://api.dexscreener.com/latest/dex/tokens/'+encodeURIComponent(ca_addr));
-    const dexData=await dexRes.json();
-    logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
-  }catch(e){}
-  const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
-  const tokenData = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
-  if (tokenData) {
-    const vol = Number(tokenData.volume24h || 0);
-    const mcap = Number(tokenData.marketCap || tokenData.market_cap || 0);
-    const formatUsd = (n) => {
-      if (isNaN(n) || n === 0) return 'N/A';
-      if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
-      if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-      return '$' + n.toFixed(0);
-    };
-    if (!flags.some(f => f.k === 'Vol 24h')) {
-      flags.push({ k: 'Vol 24h', v: formatUsd(vol), c: 'val-safe' });
-      flags.push({ k: 'MCap', v: formatUsd(mcap), c: 'val-safe' });
+  let logoImg = '';
+  try {
+    const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
+    const dexData = await dexRes.json();
+    const pair = dexData.pairs?.[0];
+    if (pair) {
+      const logoUrl = pair.info?.imageUrl || null;
+      if (logoUrl) logoImg = `<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`;
+      const liveVol = Number(pair.volume?.h24 || 0);
+      const liveMcap = Number(pair.fdv || pair.marketCap || 0);
+      const formatUsd = (n) => {
+        if (isNaN(n) || n === 0) return 'N/A';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+        return '$' + n.toFixed(0);
+      };
+      flags = flags.filter(f => f.k !== 'Vol 24h' && f.k !== 'MCap');
+      flags.push({ k: 'Vol 24h', v: formatUsd(liveVol), c: 'val-safe' });
+      flags.push({ k: 'MCap', v: formatUsd(liveMcap), c: 'val-safe' });
     }
-  }
+  } catch (e) {}
   return`<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"${f.title!=null?` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
