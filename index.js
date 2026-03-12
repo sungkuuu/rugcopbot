@@ -247,8 +247,8 @@ async function tweetAlert(rug) {
   }
 
   const volume24h = Number(rug.volume24h ?? 0);
-  const minVolume = Number(process.env.ALERT_MIN_VOLUME || 10000);
-  const minVol = Number.isFinite(minVolume) ? minVolume : 10000;
+  const minVolume = Number(process.env.ALERT_MIN_VOLUME || 8000);
+  const minVol = Number.isFinite(minVolume) ? minVolume : 8000;
   if (!Number.isFinite(volume24h) || volume24h < minVol) {
     console.log(`⏭️ Alert skipped (low volume): $${rug.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
     return;
@@ -496,17 +496,15 @@ async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
   const sd = await scanSolanaToken(ca);
-  let risk, flags, meta;
+  let risk = 15, flags = [], meta = {};
 
-  if (!sd) {
-    // GoPlus 응답이 비거나 실패한 토큰은 저장 스킵 (빈 데이터로 SAFE 표시 방지)
-    console.log(`⏭️ ${symbol || '?'} - GoPlus empty/fail for ${ca}, skipping DB save`);
-    return;
+  if (sd) {
+    risk = calcRisk(sd, 'SOL');
+    flags = getFlags(sd, 'SOL');
+    meta = sd.metadata || {};
+  } else {
+    console.log(`⚠️ ${symbol || '?'} - GoPlus failed/empty for ${ca}. Applying base risk and proceeding to bundle scan.`);
   }
-
-  risk  = calcRisk(sd, 'SOL');
-  flags = getFlags(sd, 'SOL');
-  meta  = sd.metadata || {};
   if (risk < 10) risk = 10;
 
   const bundleRisk = await getBundleRisk(ca);
