@@ -422,9 +422,9 @@ function buildCard(t){
   const logo=t.logo||null;
   const marketCap=t.marketCap||t.market_cap||0;
   const volume24h=t.volume24h||0;
-  const imgContent=logo?`<img src="${logo}" loading="lazy" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1" onerror="this.style.display='none'">`:'';
   const initials=(t.symbol&&t.symbol!=='???'?t.symbol.replace('$','').slice(0,3):t.name?t.name.slice(0,2):'??').toUpperCase();
-  const fallback=logo?'':`<div style="font-family:'Orbitron',sans-serif;font-size:22px;color:rgba(255,255,255,0.15);position:relative;z-index:1;font-weight:700;letter-spacing:0.05em">${initials}</div>`;
+  const imgContent=logo?`<img src="${String(logo).replace(/"/g,'&quot;')}" loading="lazy" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1" onerror="this.style.display='none'" onload="if(this.nextElementSibling)this.nextElementSibling.style.display='none'">`:'';
+  const fallback=`<div style="font-family:'Orbitron',sans-serif;font-size:22px;color:rgba(255,255,255,0.15);position:relative;z-index:1;font-weight:700;letter-spacing:0.05em">${initials}</div>`;
   const badgeCls=isHigh?'badge-danger':isSafe?'badge-safe':'badge-warn';
   const cardCls=isSafe?' safe-card':'';
   const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
@@ -653,23 +653,20 @@ async function getScanResultHtml(ca){
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   let logoImg = '';
   let liveVol = 0, liveMcap = 0;
-  const fallbackLogo = chain === 'SOL'
-    ? 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'
-    : 'https://cryptologos.cc/logos/ethereum-eth-logo.png';
-  let finalLogoUrl = fallbackLogo;
+  let finalLogoUrl = '/logo.png';
 
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
     const pair = dexData.pairs?.[0];
     if (pair) {
-      if (pair.info?.imageUrl) finalLogoUrl = pair.info.imageUrl;
+      finalLogoUrl = pair.info?.imageUrl || pair.baseToken?.logoURI || pair.quoteToken?.logoURI || '/logo.png';
       liveVol = Number(pair.volume?.h24 || 0);
       liveMcap = Number(pair.fdv || pair.marketCap || 0);
     }
   } catch (e) {}
 
-  logoImg = `<img class="result-logo" src="${finalLogoUrl.replace(/"/g, '&quot;')}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src='${fallbackLogo.replace(/'/g, "\\'")}'">`;
+  logoImg = `<img class="result-logo" src="${String(finalLogoUrl).replace(/"/g, '&quot;')}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src='/logo.png'">`;
 
   const formatUsd = (n) => {
     if (isNaN(n) || n === 0) return 'N/A';
