@@ -656,18 +656,21 @@ async function getScanResultHtml(ca){
     logoUrl=dexData.pairs?.[0]?.info?.imageUrl||null;
   }catch(e){}
   const logoImg=logoUrl?`<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`:'';
-  // Extract and format Volume and MCap
-  const vol = volumeMcapToken ? (volumeMcapToken.volume24h || 0) : 0;
-  const mcap = volumeMcapToken ? (volumeMcapToken.marketCap || volumeMcapToken.market_cap || 0) : 0;
-  const formatUsd = (val) => {
-    const n = Number(val);
-    if (!n || isNaN(n) || n === 0) return 'N/A';
-    if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-    return '$' + n.toFixed(0);
-  };
-  flags.push({ k: 'Vol 24h', v: formatUsd(vol), c: 'val-safe' });
-  flags.push({ k: 'MCap', v: formatUsd(mcap), c: 'val-safe' });
+  // Extract and format Volume and MCap safely
+  let volStr = 'N/A';
+  let mcapStr = 'N/A';
+  if (volumeMcapToken) {
+    const vol = Number(volumeMcapToken.volume24h);
+    const mcap = Number(volumeMcapToken.marketCap || volumeMcapToken.market_cap);
+    if (!isNaN(vol) && vol > 0) {
+      volStr = vol >= 1e6 ? '$' + (vol / 1e6).toFixed(1) + 'M' : vol >= 1e3 ? '$' + (vol / 1e3).toFixed(1) + 'K' : '$' + vol.toFixed(0);
+    }
+    if (!isNaN(mcap) && mcap > 0) {
+      mcapStr = mcap >= 1e6 ? '$' + (mcap / 1e6).toFixed(1) + 'M' : mcap >= 1e3 ? '$' + (mcap / 1e3).toFixed(1) + 'K' : '$' + mcap.toFixed(0);
+    }
+  }
+  flags.push({ k: 'Vol 24h', v: volStr, c: 'val-safe' });
+  flags.push({ k: 'MCap', v: mcapStr, c: 'val-safe' });
   return`<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     <div class="result-flags">${flags.map(f=>`<div class="rflag"${f.title!=null?` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
