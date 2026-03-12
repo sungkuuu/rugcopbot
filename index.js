@@ -814,6 +814,37 @@ app.get('/api/solana-bundle', async (req, res) => {
   }
 });
 
+// Token info helper (logo lookup etc.)
+app.get('/api/token-info', async (req, res) => {
+  const ca = String(req.query.ca || '').trim();
+  if (!ca) return res.json({ ca: null, imageUrl: null });
+
+  // 1) DexScreener token-profiles list -> match tokenAddress -> icon
+  try {
+    const r = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
+    if (r.ok) {
+      const profiles = await r.json();
+      const list = Array.isArray(profiles) ? profiles : [];
+      const found = list.find(p => String(p?.tokenAddress || '') === ca);
+      const icon = found?.icon;
+      if (icon) return res.json({ ca, imageUrl: icon, source: 'token-profiles' });
+    }
+  } catch (e) {}
+
+  // 2) DexScreener tokens/v1/solana/:ca -> pairs[0].info.imageUrl
+  try {
+    const r = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${encodeURIComponent(ca)}`);
+    if (r.ok) {
+      const data = await r.json();
+      const pair = Array.isArray(data) ? data?.[0] : data?.pairs?.[0];
+      const imageUrl = pair?.info?.imageUrl || null;
+      if (imageUrl) return res.json({ ca, imageUrl, source: 'tokens-v1' });
+    }
+  } catch (e) {}
+
+  return res.json({ ca, imageUrl: null });
+});
+
 function getTimeAgo(ts) {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60)   return `${diff}s ago`;
