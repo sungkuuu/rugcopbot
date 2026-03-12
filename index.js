@@ -925,6 +925,22 @@ app.get('/api/token-info', async (req, res) => {
   return res.json({ ca, imageUrl: null });
 });
 
+// One-off / admin: remove legacy rows with risk 50 + PENDING_GOPLUS in flags (JSON/text)
+app.get('/admin/cleanup', async (req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+  try {
+    const result = await pool.query(
+      "DELETE FROM tokens WHERE risk = 50 AND flags::text LIKE '%PENDING_GOPLUS%'"
+    );
+    res.json({ deleted: result.rowCount });
+  } catch (e) {
+    console.error('admin/cleanup error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 function getTimeAgo(ts) {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60)   return `${diff}s ago`;
