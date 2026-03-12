@@ -87,14 +87,14 @@ async function saveRug(rug) {
   }
   try {
     await pool.query(
-      `INSERT INTO tokens (ca, name, symbol, chain, risk, flags, volume24h, market_cap, logo, type, bundle_label, bundle_risk_add)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      `INSERT INTO tokens (ca, name, symbol, chain, risk, risk_score, flags, volume24h, market_cap, logo, type, bundle_label, bundle_risk_add)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (ca) DO UPDATE SET
-         name=EXCLUDED.name, symbol=EXCLUDED.symbol, chain=EXCLUDED.chain, risk=EXCLUDED.risk,
-         flags=EXCLUDED.flags, volume24h=EXCLUDED.volume24h, market_cap=EXCLUDED.market_cap,
+        name=EXCLUDED.name, symbol=EXCLUDED.symbol, chain=EXCLUDED.chain, risk=EXCLUDED.risk, risk_score=EXCLUDED.risk_score,
+        flags=EXCLUDED.flags, volume24h=EXCLUDED.volume24h, market_cap=EXCLUDED.market_cap,
          logo=EXCLUDED.logo, type=EXCLUDED.type,
          bundle_label=EXCLUDED.bundle_label, bundle_risk_add=EXCLUDED.bundle_risk_add`,
-      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean', rug.bundle_label ?? null, rug.bundle_risk_add ?? null]
+      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean', rug.bundle_label ?? null, rug.bundle_risk_add ?? null]
     );
     console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
   } catch(e) {
@@ -758,19 +758,37 @@ app.get('/api/recent-rugs', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   if (process.env.DATABASE_URL) {
     try {
-      const stats = await pool.query(`SELECT COUNT(*)::int as total, COUNT(CASE WHEN type='danger' THEN 1 END)::int as danger, COUNT(CASE WHEN type='clean' THEN 1 END)::int as clean, COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END)::int as "last24h" FROM tokens`);
-      res.json(stats.rows[0]);
+      const stats = await pool.query(`
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(CASE WHEN COALESCE(risk_score, risk) >= 70 THEN 1 END)::int AS rugs_detected,
+          COUNT(CASE WHEN COALESCE(risk_score, risk) <= 30 THEN 1 END)::int AS clean,
+          COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END)::int AS "last24h",
+          ROUND((COUNT(CASE WHEN COALESCE(risk_score, risk) >= 70 THEN 1 END)::numeric / NULLIF(COUNT(*)::numeric, 0)) * 100)::int AS rug_rate
+        FROM tokens
+      `);
+      const row = stats.rows[0] || {};
+      res.json({
+        ...row,
+        // keep backward compatibility with old frontend fields
+        danger: row.rugs_detected ?? 0,
+      });
       return;
     } catch(e) {
       console.error('stats error:', e.message);
     }
   }
   const rugs = loadRugs();
+  const rugsDetected = rugs.filter(r => Number(r.risk || 0) >= 70).length;
+  const total = rugs.length;
+  const rugRate = total ? Math.round((rugsDetected / total) * 100) : 0;
   res.json({
-    total: rugs.length,
-    totalRugs: rugs.length,
-    danger: rugs.filter(r => r.type === 'danger').length,
-    clean: rugs.filter(r => r.type === 'clean').length,
+    total,
+    totalRugs: total,
+    rugs_detected: rugsDetected,
+    danger: rugsDetected,
+    rug_rate: rugRate,
+    clean: rugs.filter(r => Number(r.risk || 0) <= 30).length,
     last24h: rugs.filter(r => Date.now() - r.time < 86400000).length,
   });
 });
@@ -823,6 +841,7 @@ app.listen(PORT, async () => {
           symbol TEXT,
           chain TEXT,
           risk INTEGER,
+          risk_score INTEGER,
           flags TEXT,
           volume24h NUMERIC,
           market_cap NUMERIC,
@@ -833,6 +852,7 @@ app.listen(PORT, async () => {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS risk_score INTEGER');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_label TEXT');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_risk_add INTEGER');
       console.log('✅ Tokens table ready');
