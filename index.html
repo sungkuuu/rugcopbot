@@ -14,7 +14,8 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospac
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(184,50,40,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(184,50,40,0.02) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
 
 nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:54px;background:rgba(8,8,8,0.98);border-bottom:1px solid var(--red)}
-.nav-logo{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--bright);letter-spacing:0.08em}
+.nav-logo{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--bright);letter-spacing:0.08em;text-decoration:none;display:inline-block;cursor:pointer}
+.nav-logo:hover{opacity:0.9}
 .nav-logo span{color:var(--red2)}
 .nav-pills{display:flex;gap:4px}
 .nav-pill{font-size:8px;color:var(--muted);padding:4px 10px;border:1px solid var(--border);letter-spacing:0.08em}
@@ -254,7 +255,7 @@ footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:18
 <body>
 
 <nav>
-  <div class="nav-logo">RUG<span>COP</span></div>
+  <a href="/" class="nav-logo" title="RugCop — Home">RUG<span>COP</span></a>
   <div class="nav-pills">
     <div class="nav-pill">SCANNED <strong id="navScanned">—</strong></div>
     <div class="nav-pill">RUGS TODAY <strong id="navRugs">—</strong></div>
