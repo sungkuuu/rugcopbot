@@ -653,17 +653,23 @@ async function getScanResultHtml(ca){
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   let logoImg = '';
   let liveVol = 0, liveMcap = 0;
+  const fallbackLogo = chain === 'SOL'
+    ? 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'
+    : 'https://cryptologos.cc/logos/ethereum-eth-logo.png';
+  let finalLogoUrl = fallbackLogo;
+
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
     const pair = dexData.pairs?.[0];
     if (pair) {
-      const logoUrl = pair.info?.imageUrl;
-      if (logoUrl) logoImg = `<img class="result-logo" src="${logoUrl.replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`;
+      if (pair.info?.imageUrl) finalLogoUrl = pair.info.imageUrl;
       liveVol = Number(pair.volume?.h24 || 0);
       liveMcap = Number(pair.fdv || pair.marketCap || 0);
     }
   } catch (e) {}
+
+  logoImg = `<img class="result-logo" src="${finalLogoUrl.replace(/"/g, '&quot;')}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src='${fallbackLogo.replace(/'/g, "\\'")}'">`;
 
   const formatUsd = (n) => {
     if (isNaN(n) || n === 0) return 'N/A';
@@ -672,7 +678,7 @@ async function getScanResultHtml(ca){
     return '$' + n.toFixed(0);
   };
 
-  const dbToken = allTokens.find(t => t.ca.toLowerCase() === ca.toLowerCase());
+  const dbToken = typeof allTokens !== 'undefined' && allTokens && allTokens.find(t => t.ca && ca && (t.ca === ca || t.ca.toLowerCase() === ca.toLowerCase()));
   const finalVol = (dbToken && Number(dbToken.volume24h) > 0) ? Number(dbToken.volume24h) : liveVol;
   const finalMcap = (dbToken && Number(dbToken.marketCap || dbToken.market_cap) > 0) ? Number(dbToken.marketCap || dbToken.market_cap) : liveMcap;
 
@@ -680,8 +686,17 @@ async function getScanResultHtml(ca){
   flags.push({ k: 'Vol 24h', v: formatUsd(finalVol), c: 'val-safe' });
   flags.push({ k: 'MCap', v: formatUsd(finalMcap), c: 'val-safe' });
 
+  const caAddrEsc = String(ca_addr).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const caDisplay = `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-size: 13px; color: #fff; font-family: monospace; word-break: break-all; padding-right: 15px;">
+      <strong>CA:</strong> ${caAddrEsc}
+    </div>
+    <button onclick="navigator.clipboard.writeText(${JSON.stringify(ca_addr)}); this.innerText='Copied!'; this.style.backgroundColor='#4ade80'; this.style.color='#000'; setTimeout(function(){this.innerText='Copy'; this.style.backgroundColor='#374151'; this.style.color='#fff';}.bind(this), 2000);" style="padding: 6px 14px; background-color: #374151; color: #fff; border: 1px solid #4B5563; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; flex-shrink: 0; transition: background-color 0.2s;">Copy</button>
+  </div>`;
+
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
+    ${caDisplay}
     <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
@@ -849,15 +864,11 @@ function openCardModal(ca) {
     : '<span style="font-size:24px">🚨</span>';
   const riskCls = (t.risk >= 70) ? 'risk-high' : (t.risk >= 40) ? 'risk-mid' : 'risk-low';
   const flagsStr = flags.filter(f => f && f !== 'NO_SCAN_DATA').slice(0, 6).map(f => `<span class="tcf tcf-danger" style="margin:2px 4px 2px 0">${String(f).replace(/</g, '&lt;')}</span>`).join('');
-  const caStr = String(t.ca || ca).replace(/</g, '&lt;');
-  const caForCopy = JSON.stringify(t.ca || ca);
-  const caLine = `<div onclick="navigator.clipboard.writeText(${caForCopy}); this.style.color='#4ade80'; setTimeout(function(){ this.style.color='#fff'; }.bind(this), 1000);" style="margin-top:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;word-break:break-all;color:#fff;cursor:pointer;transition:0.2s;" title="Click to copy CA"><strong>CA:</strong> ${caStr} 📋</div>`;
   content.innerHTML = `<div class="result-card" style="max-width:100%">
     <div class="result-header">
       <div class="result-header-left">${logoHtml}<div><div class="result-name">${name}</div><div class="result-sym">${sym} · ${t.chain || 'SOL'}</div></div></div>
       <span class="risk-pill ${riskCls}">${t.risk}%</span>
     </div>
-    ${caLine}
     <div class="result-flags" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px">
       <div class="rflag"><span class="rflag-key">Mutable</span><span class="rflag-val ${isMutable ? 'val-danger' : 'val-safe'}">${isMutable ? '🚨 YES' : '✅ NO'}</span></div>
       <div class="rflag"><span class="rflag-key">Freezable</span><span class="rflag-val ${isFreezable ? 'val-danger' : 'val-safe'}">${isFreezable ? '🚨 YES' : '✅ NO'}</span></div>
