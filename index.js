@@ -395,6 +395,28 @@ function abbreviateWallet(addr) {
 }
 
 /**
+ * Helius tx list signature count only (used when GoPlus empty — no save if 0).
+ */
+async function getHeliusSignatureCount(ca) {
+  if (!ca || !HELIUS_API_KEY) return 0;
+  try {
+    const txRes = await fetch(
+      `https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=100`
+    );
+    const txText = await txRes.text();
+    let parsedTxs = [];
+    try {
+      parsedTxs = JSON.parse(txText);
+      if (!Array.isArray(parsedTxs)) parsedTxs = [];
+    } catch (e) { /* ignore */ }
+    const signatures = parsedTxs.map(tx => tx.signature).filter(Boolean);
+    return signatures.length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
  * Temporal bundle detection: genesis + 60s window → snipers → funding sources.
  * Returns { label, riskAdd, sniperCount?, sourceWallet?, flags? }.
  */
@@ -503,15 +525,46 @@ async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
   const sd = await scanSolanaToken(ca);
-  let risk = 50, flags = ['PENDING_GOPLUS'], meta = {};
-
-  if (sd) {
-    risk = calcRisk(sd, 'SOL');
-    flags = getFlags(sd, 'SOL');
-    meta = sd.metadata || {};
-  } else {
-    console.log(`⚠️ ${symbol || '?'} - GoPlus empty for ${ca}. Applying 50% caution risk.`);
+  if (!sd) {
+    // No GoPlus: require Helius signatures > 0 and bundle must be HIGH_BUNDLE only
+    const sigCount = await getHeliusSignatureCount(ca);
+    if (sigCount === 0) {
+      console.log(`⏭️ ${symbol || '?'} - GoPlus empty, signatures===0 for ${ca}, skipping DB save`);
+      return;
+    }
+    const bundleRisk = await getBundleRisk(ca);
+    if (!bundleRisk.flags || !bundleRisk.flags.includes('HIGH_BUNDLE')) {
+      console.log(`⏭️ ${symbol || '?'} - GoPlus empty and bundle not HIGH_BUNDLE for ${ca}, skipping DB save`);
+      return;
+    }
+    const metaFromHelius = await getTokenMeta(ca);
+    let logo = null;
+    try {
+      const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+      const dexData = await dexRes.json();
+      logo = dexData.pairs?.[0]?.info?.imageUrl || null;
+    } catch(e) {}
+    if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
+    const rug = {
+      ca,
+      name: name || metaFromHelius.name || 'Unknown',
+      symbol: symbol || metaFromHelius.symbol || '???',
+      chain: 'SOL',
+      risk: 85,
+      flags: ['HIGH_BUNDLE'],
+      time: Date.now(),
+      bundle_label: bundleRisk.label,
+      bundle_risk_add: bundleRisk.riskAdd ?? 0,
+    };
+    rug.logo = logo ?? null;
+    await saveRug({ ...rug, type: 'danger' });
+    await tweetAlert({ ...rug, volume24h: 0, marketCap: 0, bundle_label: bundleRisk.label });
+    return;
   }
+
+  let risk = calcRisk(sd, 'SOL');
+  let flags = getFlags(sd, 'SOL');
+  const meta = sd.metadata || {};
   if (risk < 10) risk = 10;
 
   const bundleRisk = await getBundleRisk(ca);
@@ -566,7 +619,33 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     const gpData = await gpRes.json();
     const key = Object.keys(gpData.result || {})[0];
     const sd = gpData.result?.[key];
-    if (!sd) return;
+    if (!sd) {
+      const bundleRisk = await getBundleRisk(ca);
+      if (!bundleRisk.flags || !bundleRisk.flags.includes('HIGH_BUNDLE')) return;
+      const name = pair?.baseToken?.name || tokenMeta.name || tokenMeta.description || 'Unknown';
+      const symbol = pair?.baseToken?.symbol || tokenMeta.symbol || '???';
+      const volume24h = pair?.volume?.h24 || 0;
+      const marketCap = pair?.marketCap || 0;
+      const logo = pair?.info?.imageUrl || null;
+      const rugPayload = {
+        ca,
+        name,
+        symbol,
+        chain: 'SOL',
+        risk: 85,
+        flags: ['HIGH_BUNDLE'],
+        volume24h,
+        marketCap,
+        priceUsd: pair?.priceUsd || 0,
+        logo,
+        top10pct: 0,
+        bundle_label: bundleRisk.label,
+        bundle_risk_add: bundleRisk.riskAdd ?? 0,
+      };
+      await saveRug({ ...rugPayload, type: 'danger' });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
+      return;
+    }
 
     console.log('GoPlus raw:', JSON.stringify(sd).slice(0, 300));
 
