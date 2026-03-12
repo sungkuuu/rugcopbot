@@ -659,7 +659,7 @@ async function getScanResultHtml(ca){
     :`<span class="result-buy disabled"><span class="btn-icon"><img src="https://cdn.prod.website-files.com/64b5c14fa2f6ed017f22e0b0/64b6ca1c1b4edec0f95e75f5_banana-gun-logo.png" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'inline\'"><span class="btn-emoji">🍌</span></span> Snipe on Banana Gun</span>`;
   let logoImg = '';
   let liveVol = 0, liveMcap = 0;
-  let finalLogoUrl = '/logo.png';
+  let finalLogoUrl = '';
 
   try {
     const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
@@ -667,13 +667,24 @@ async function getScanResultHtml(ca){
     console.log(JSON.stringify(dexData, null, 2));
     const pair = dexData.pairs?.[0];
     if (pair) {
-      finalLogoUrl = pair.info?.imageUrl || pair.baseToken?.logoURI || pair.quoteToken?.logoURI || '/logo.png';
+      finalLogoUrl =
+        pair.info?.imageUrl ||
+        pair.info?.header ||
+        pair.info?.openGraph ||
+        pair.baseToken?.logoURI ||
+        '';
       liveVol = Number(pair.volume?.h24 || 0);
       liveMcap = Number(pair.fdv || pair.marketCap || 0);
     }
   } catch (e) {}
 
-  logoImg = `<img class="result-logo" src="${String(finalLogoUrl).replace(/"/g, '&quot;')}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src='/logo.png'">`;
+  const scanInitial = String((name || sym || '?') || '?').trim().replace(/^\$/,'')[0]?.toUpperCase() || '?';
+  if (finalLogoUrl) {
+    logoImg = `<img class="result-logo" src="${String(finalLogoUrl).replace(/"/g, '&quot;')}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')">` +
+      `<div class="result-logo-initial" style="display:none;width:40px;height:40px;border-radius:50%;background:#222;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;">${scanInitial}</div>`;
+  } else {
+    logoImg = `<div class="result-logo-initial" style="display:flex;width:40px;height:40px;border-radius:50%;background:#222;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;">${scanInitial}</div>`;
+  }
 
   const formatUsd = (n) => {
     if (isNaN(n) || n === 0) return 'N/A';
