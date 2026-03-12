@@ -639,7 +639,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 async function scanTrendingTokens() {
   try {
     console.log('🔥 Scanning trending tokens...');
-    const res = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
+    const res = await fetch('https://api.dexscreener.com/tokenprofiles/v1/latest');
     const tokens = await res.json();
     const solTokens = (Array.isArray(tokens) ? tokens : [])
       .filter(t => t.chainId === 'solana' && t.tokenAddress)
@@ -655,7 +655,7 @@ async function scanTrendingTokens() {
     }
 
     // Solana 신규 상장 토큰 추가 스캔 (상위 10개)
-    const newRes = await fetch('https://api.dexscreener.com/token-profiles/latest/v1');
+    const newRes = await fetch('https://api.dexscreener.com/tokenprofiles/v1/latest');
     const newData = await newRes.json();
     const newCAs = Array.isArray(newData)
       ? newData.filter(t => t.chainId === 'solana').slice(0, 10).map(t => t.tokenAddress).filter(Boolean)
