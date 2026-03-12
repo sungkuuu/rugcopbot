@@ -269,9 +269,9 @@ async function tweetAlert(rug) {
     (flags || []).includes('FREEZE_AUTHORITY') ||
     (flags || []).includes('FREEZABLE');
 
-  // DANGER 알림: high bundle instantly, else risk>=70 + volume to avoid Mutable-only spam
+  // DANGER 알림: high bundle instantly, else risk>=70
   const isHighBundle = (flags || []).includes('HIGH_BUNDLE');
-  if (isHighBundle || (risk >= 70 && volume24h >= 5000)) {
+  if (isHighBundle || risk >= 70) {
     const dangerMsg = `🚨 SCAM ALERT — $${symbol}
 
 ${name} | ${chainStr} | Risk: ${risk}%
@@ -310,7 +310,7 @@ rugcop.xyz
   }
 
   // CLEAN 알림 (15분 쿨다운 유지) — skip if bundle scan inconclusive (no false Gem)
-  if (risk <= 30 && volume24h >= 10000) {
+  if (risk <= 30) {
     if (isBundleLabelUnverified(rug.bundle_label)) return;
     if (Date.now() - lastAdminAlert < ADMIN_COOLDOWN) return;
     if (marketCap < 50000) return;
@@ -630,16 +630,15 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
     };
 
-    if (bundleRisk.riskAdd >= 30) {
-      await saveRug({ ...rugPayload, type: 'danger' });
+    // DB 저장은 volume 무관하게 항상 수행
+    const type = finalRisk >= 70 ? 'danger' : finalRisk <= 30 ? 'clean' : 'neutral';
+    await saveRug({ ...rugPayload, type });
+
+    // 텔레그램 알람은 tweetAlert 내부에서 ALERT_MIN_VOLUME로 필터링됨
+    if (bundleRisk.riskAdd >= 30 || finalRisk >= 70) {
       await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
     }
-    if (finalRisk >= 70) {
-      await saveRug({ ...rugPayload, type: 'danger' });
-      await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
-    }
-    if (finalRisk <= 30 && volume24h >= 10000 && !isBundleLabelUnverified(bundleRisk.label)) {
-      await saveRug({ ...rugPayload, type: 'clean' });
+    if (finalRisk <= 30 && !isBundleLabelUnverified(bundleRisk.label)) {
       await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
     }
   } catch(e) { /* skip */ }
