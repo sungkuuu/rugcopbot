@@ -563,12 +563,12 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     const mintAuth = sd.metadata?.['mint_authority'] || sd.mintAuthority || sd.mint_authority;
     const freezeAuth = sd.metadata?.['freeze_authority'] || sd.freezeAuthority || sd.freeze_authority;
-    const mutable = sd.mutable === '1' || sd.is_mutable === '1';
+    const mutable = sd.balance_mutable_authority?.status === '1';
 
     const flags = [];
     if (mintAuth) flags.push('MINT_AUTHORITY');
     if (freezeAuth) flags.push('FREEZE_AUTHORITY');
-    if (mutable) flags.push('MUTABLE_METADATA');
+    if (mutable) flags.push('MUTABLE');
 
     let risk = mintAuth ? 80 : freezeAuth ? 70 : mutable ? 60 : 15;
 

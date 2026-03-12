@@ -864,11 +864,28 @@ function openCardModal(ca) {
     : '<span style="font-size:24px">🚨</span>';
   const riskCls = (t.risk >= 70) ? 'risk-high' : (t.risk >= 40) ? 'risk-mid' : 'risk-low';
   const flagsStr = flags.filter(f => f && f !== 'NO_SCAN_DATA').slice(0, 6).map(f => `<span class="tcf tcf-danger" style="margin:2px 4px 2px 0">${String(f).replace(/</g, '&lt;')}</span>`).join('');
+
+  const caEscaped = String(t.ca || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const caDisplay = t.ca ? `
+    <div style="margin:12px 0;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.05em;word-break:break-all;line-height:1.6;flex:1;">
+        <span style="color:var(--text);font-size:8px;letter-spacing:0.1em;display:block;margin-bottom:2px">CA</span>
+        ${String(t.ca).replace(/</g,'&lt;')}
+      </div>
+      <button
+        onclick="(function(btn){navigator.clipboard.writeText('${caEscaped}').then(function(){btn.textContent='✓';btn.style.color='#1a9e50';btn.style.borderColor='rgba(26,158,80,0.4)';setTimeout(function(){btn.textContent='COPY';btn.style.color='';btn.style.borderColor='';},1500);}).catch(function(){btn.textContent='ERR';});})(this)"
+        style="font-family:'Orbitron',sans-serif;font-size:7px;padding:5px 10px;background:transparent;color:var(--muted);border:1px solid var(--border);cursor:pointer;letter-spacing:0.08em;flex-shrink:0;transition:all .15s;white-space:nowrap;"
+        onmouseover="this.style.borderColor='rgba(184,50,40,0.4)';this.style.color='var(--text)'"
+        onmouseout="this.style.borderColor='';this.style.color=''"
+      >COPY</button>
+    </div>` : '';
+
   content.innerHTML = `<div class="result-card" style="max-width:100%">
     <div class="result-header">
       <div class="result-header-left">${logoHtml}<div><div class="result-name">${name}</div><div class="result-sym">${sym} · ${t.chain || 'SOL'}</div></div></div>
       <span class="risk-pill ${riskCls}">${t.risk}%</span>
     </div>
+    ${caDisplay}
     <div class="result-flags" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px">
       <div class="rflag"><span class="rflag-key">Mutable</span><span class="rflag-val ${isMutable ? 'val-danger' : 'val-safe'}">${isMutable ? '🚨 YES' : '✅ NO'}</span></div>
       <div class="rflag"><span class="rflag-key">Freezable</span><span class="rflag-val ${isFreezable ? 'val-danger' : 'val-safe'}">${isFreezable ? '🚨 YES' : '✅ NO'}</span></div>
