@@ -246,7 +246,13 @@ async function tweetAlert(rug) {
     return;
   }
 
-  const volume24h = rug.volume24h ?? 0;
+  const volume24h = Number(rug.volume24h ?? 0);
+  const minVolume = Number(process.env.ALERT_MIN_VOLUME || 10000);
+  const minVol = Number.isFinite(minVolume) ? minVolume : 10000;
+  if (!Number.isFinite(volume24h) || volume24h < minVol) {
+    console.log(`⏭️ Alert skipped (low volume): $${rug.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
+    return;
+  }
   const marketCap = rug.marketCap ?? 0;
   const top10pct = rug.top10pct != null ? rug.top10pct : 0;
   const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
