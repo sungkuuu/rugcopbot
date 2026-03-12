@@ -184,6 +184,13 @@ const TWEET_COOLDOWN = 900000; // 15분에 1개만 트윗
 let lastAdminAlert = 0;
 const ADMIN_COOLDOWN = 15 * 60 * 1000; // 15분
 
+/** Bundle scan inconclusive — do not broadcast Gem/clean alerts on stale labels */
+function isBundleLabelUnverified(label) {
+  if (label == null || label === '') return false;
+  const s = String(label);
+  return /unavailable|high volume|n\/a/i.test(s);
+}
+
 async function tweetAlert(rug) {
   if (tweetedCAs.has(rug.ca)) return;
 
@@ -223,6 +230,7 @@ CA: ${ca}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
+🔗 Bundle: ${rug.bundle_label || 'N/A'}
 
 ——— TWEET DRAFT ———
 🚨 $${symbol} flagged by RugCop
@@ -248,8 +256,9 @@ rugcop.xyz
     return;
   }
 
-  // CLEAN 알림 (15분 쿨다운 유지)
+  // CLEAN 알림 (15분 쿨다운 유지) — skip if bundle scan inconclusive (no false Gem)
   if (risk <= 30 && volume24h >= 10000) {
+    if (isBundleLabelUnverified(rug.bundle_label)) return;
     if (Date.now() - lastAdminAlert < ADMIN_COOLDOWN) return;
     if (marketCap < 50000) return;
 
@@ -264,6 +273,7 @@ CA: ${ca}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
+🔗 Bundle: ${rug.bundle_label || 'N/A'}
 
 Scan before you ape 👇\
 rugcop.xyz
@@ -475,8 +485,11 @@ async function processNewToken(ca, name, symbol) {
       if (risk > 30 && risk < 50) return; // 중간 위험은 스킵
 
       if (risk <= 30 || risk >= 50) {
-        await saveRug({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags, logo: logo ?? null, bundle_label: bundleRisk.label, bundle_risk_add: bundleRisk.riskAdd ?? 0 });
-        if (risk <= 30 || risk >= 80) await tweetAlert({ ca, name, symbol, chain: 'SOL', risk: Math.min(risk, 99), flags });
+        const finalRisk = Math.min(99, risk);
+        const rugPayload = { ca, name, symbol, chain: 'SOL', risk: finalRisk, flags, logo: logo ?? null, bundle_label: bundleRisk.label, bundle_risk_add: bundleRisk.riskAdd ?? 0 };
+        await saveRug(rugPayload);
+        if (risk >= 80) await tweetAlert({ ...rugPayload, bundle_label: bundleRisk.label });
+        if (risk <= 30 && !isBundleLabelUnverified(bundleRisk.label)) await tweetAlert({ ...rugPayload, bundle_label: bundleRisk.label });
       }
       return;
     } catch(e) {
@@ -577,7 +590,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     }
 
     if (risk < 10) risk = 10;
-    risk = Math.min(risk, 99);
+    const finalRisk = Math.min(99, risk);
 
     const meta = sd.metadata || {};
     let name = meta.name || tokenMeta.name || tokenMeta.description;
@@ -585,7 +598,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     let symbol = meta.symbol || tokenMeta.symbol;
     if (!symbol || symbol === '???') symbol = dexSymbol || '???';
 
-    console.log(`📊 ${symbol}: risk ${risk}% flags: ${flags.join(', ')}`);
+    console.log(`📊 ${symbol}: risk ${finalRisk}% flags: ${flags.join(', ')}`);
 
     const volume24h = pair?.volume?.h24 || 0;
     const marketCap = pair?.marketCap || 0;
@@ -597,7 +610,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       name,
       symbol,
       chain: 'SOL',
-      risk: Math.min(risk, 99),
+      risk: finalRisk,
       flags,
       volume24h,
       marketCap,
@@ -610,15 +623,15 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 
     if (bundleRisk.riskAdd >= 30) {
       await saveRug({ ...rugPayload, type: 'danger' });
-      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
     }
-    if (risk >= 70) {
+    if (finalRisk >= 70) {
       await saveRug({ ...rugPayload, type: 'danger' });
-      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
     }
-    if (risk <= 30 && volume24h >= 10000) {
+    if (finalRisk <= 30 && volume24h >= 10000 && !isBundleLabelUnverified(bundleRisk.label)) {
       await saveRug({ ...rugPayload, type: 'clean' });
-      await tweetAlert({ ...rugPayload, volume24h, marketCap });
+      await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
     }
   } catch(e) { /* skip */ }
 }
@@ -919,6 +932,13 @@ async function runScanInChat(chatId, contractAddress) {
       } else {
         const localToken = loadRugs().find(r => r.ca === contractAddress);
         if (localToken) dbToken = localToken;
+      }
+
+      if (dbToken) {
+        const lbl = dbToken.bundle_label || dbToken.bundleLabel || '';
+        if (/unavailable|high volume|n\/a/i.test(lbl)) {
+          dbToken = null;
+        }
       }
 
       if (dbToken) {
