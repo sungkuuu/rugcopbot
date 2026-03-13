@@ -577,7 +577,11 @@ async function processNewToken(ca, name, symbol) {
     return;
   }
 
-  const metaFromHelius = await getTokenMeta(ca);
+  // Only call getAsset (Helius credit) for HIGH_BUNDLE or high-risk tokens
+  const isHighBundle = bundleRisk.flags?.includes('HIGH_BUNDLE');
+  const metaFromHelius = (isHighBundle || risk >= 70)
+    ? await getTokenMeta(ca)
+    : { name: meta.name || name || 'Unknown', symbol: meta.symbol || symbol || '???', image: '' };
 
   const rug = {
     ca,
