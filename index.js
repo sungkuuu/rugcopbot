@@ -403,11 +403,35 @@ for (const [cex, addrs] of Object.entries(CEX_MAP)) {
 }
 
 /**
+ * Parse CEX funding string and return risk add: totalCEX < 20 → +20, 20–50 → 0, >= 50 → -10, N/A → 0.
+ */
+function calcCEXRiskAdd(cexFundingStr) {
+  if (cexFundingStr == null || cexFundingStr === 'N/A') return 0;
+  const s = String(cexFundingStr).trim();
+  if (!s) return 0;
+  let totalCEX = 0;
+  const parts = s.split('|').map(p => p.trim());
+  for (const p of parts) {
+    const match = p.match(/^(.+?)\s+(\d+)\s*%?\s*$/);
+    if (match) {
+      const label = match[1].trim();
+      const num = parseInt(match[2], 10) || 0;
+      if (label !== 'Unknown') totalCEX += num;
+    }
+  }
+  if (totalCEX < 20) return 20;
+  if (totalCEX >= 50) return -10;
+  return 0;
+}
+
+/**
  * For top 10 holders, resolve funding source via Helius and tally by CEX.
- * Returns string like "Binance 28% | Coinbase 21% | Unknown 51%"
+ * Returns { str, riskAdd } where str is like "Binance 28% | Coinbase 21% | Unknown 51%".
  */
 async function analyzeCEXFunding(holders) {
-  if (!HELIUS_API_KEY || !Array.isArray(holders) || holders.length === 0) return 'N/A';
+  if (!HELIUS_API_KEY || !Array.isArray(holders) || holders.length === 0) {
+    return { str: 'N/A', riskAdd: 0 };
+  }
   const top10 = holders.slice(0, 10);
   const results = await Promise.allSettled(top10.map(async (h) => {
     const address = typeof h === 'string' ? h : (h?.address || h?.owner);
@@ -444,7 +468,8 @@ async function analyzeCEXFunding(holders) {
     if (tally[cex] > 0) parts.push(`${cex} ${Math.round(tally[cex])}%`);
   }
   if (tally.Unknown > 0) parts.push(`Unknown ${Math.round(tally.Unknown)}%`);
-  return parts.length ? parts.join(' | ') : 'N/A';
+  const str = parts.length ? parts.join(' | ') : 'N/A';
+  return { str, riskAdd: calcCEXRiskAdd(str) };
 }
 
 function abbreviateWallet(addr) {
@@ -669,7 +694,12 @@ async function processNewToken(ca, name, symbol) {
 
   if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
-  rug.cexFunding = await analyzeCEXFunding(sd.top_holders || []);
+  const cexResult = await analyzeCEXFunding(sd.top_holders || []);
+  rug.cexFunding = cexResult.str;
+  const cexRiskAdd = calcCEXRiskAdd(rug.cexFunding);
+  rug.risk += cexRiskAdd;
+  rug.risk = Math.min(99, rug.risk);
+  if (cexRiskAdd > 0) rug.flags.push('CEX_ANON');
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
@@ -749,6 +779,11 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       flags.push('DEV_WHALE');
     }
 
+    const cexResult = await analyzeCEXFunding(sd.top_holders || []);
+    const cexRiskAdd = calcCEXRiskAdd(cexResult.str);
+    risk += cexRiskAdd;
+    if (cexRiskAdd > 0) flags.push('CEX_ANON');
+
     if (risk < 10) risk = 10;
     const finalRisk = Math.min(99, risk);
     console.log('[scanOneSolanaToken] flags:', flags);
@@ -767,7 +802,6 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     const priceUsd = pair?.priceUsd || 0;
     const logo = pair?.info?.imageUrl || null;
 
-    const cexFunding = await analyzeCEXFunding(sd.top_holders || []);
     const rugPayload = {
       ca,
       name,
@@ -782,7 +816,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       top10pct,
       bundle_label: bundleRisk.label,
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
-      cexFunding,
+      cexFunding: cexResult.str,
     };
 
     // DB 저장은 volume 무관하게 항상 수행
@@ -1196,7 +1230,8 @@ async function runScanInChat(chatId, contractAddress) {
         const frzStr = isFreezable ? '🚨 YES' : '✅ NO';
         const clStr = isClosable ? '🚨 YES' : '✅ NO';
         const top10str = 'N/A (Hidden in Pool/Curve)';
-        const cexStr = await analyzeCEXFunding(dbToken.top_holders || []);
+        const cexResult = await analyzeCEXFunding(dbToken.top_holders || []);
+        const cexStr = cexResult.str;
         const aiAudit = await getAIAudit('SOLANA_TOKEN', {}, bundleLabel, finalRisk);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
@@ -1227,7 +1262,8 @@ async function runScanInChat(chatId, contractAddress) {
           const top10pct = top10.reduce((sum, h) => sum + parseFloat(h.percent || h.holding || 0), 0);
           top10str = Math.round(top10pct) + '%';
         }
-        const cexStr = await analyzeCEXFunding(holders);
+        const cexResult = await analyzeCEXFunding(holders);
+        const cexStr = cexResult.str;
         const bundleRisk = await getBundleRisk(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
