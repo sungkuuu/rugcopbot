@@ -611,7 +611,18 @@ async function processNewToken(ca, name, symbol) {
   if (process.env.DATABASE_URL) {
     const existing = await pool.query('SELECT id FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
     if (existing.rows.length > 0) {
-      console.log(`⏭️ ${ca} already in DB, skipping`);
+      // Update vol/mcap only
+      try {
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+        const dexData = await dexRes.json();
+        const pair = dexData.pairs?.[0];
+        if (pair) {
+          await pool.query(
+            'UPDATE tokens SET volume24h = $2, market_cap = $3 WHERE ca = $1',
+            [ca, pair.volume?.h24 || 0, pair.fdv || pair.marketCap || 0]
+          );
+        }
+      } catch(e) {}
       return;
     }
   }
