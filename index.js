@@ -524,6 +524,14 @@ async function detectSniperBundle(ca) {
 async function processNewToken(ca, name, symbol) {
   console.log(`🔍 New token detected: ${symbol} (${ca})`);
 
+  if (process.env.DATABASE_URL) {
+    const existing = await pool.query('SELECT id FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+    if (existing.rows.length > 0) {
+      console.log(`⏭️ ${ca} already in DB, skipping`);
+      return;
+    }
+  }
+
   const sd = await scanSolanaToken(ca);
   if (!sd) {
     // No GoPlus: require Helius signatures > 0 and bundle must be HIGH_BUNDLE only
