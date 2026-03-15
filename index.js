@@ -280,6 +280,7 @@ CA: ${ca}
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
 
 👥 Top 10 Holders: ${top10str}
+💰 CEX: ${rug.cexFunding || 'N/A'}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -323,6 +324,7 @@ CA: ${ca}
 ⚖️ Mutable: ${isMutable ? '🚨 YES' : '✅ NO'} | 🧊 Freezable: ${isFreezable ? '🚨 YES' : '✅ NO'}
 
 👥 Top 10 Holders: ${top10str}
+💰 CEX: ${rug.cexFunding || 'N/A'}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', {maximumFractionDigits:0})}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
@@ -387,6 +389,63 @@ const CEX_WHITELIST = new Set([
   'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', // Coinbase
   'okv8ProtocolProgram111111111111111111111111111'  // OKX
 ]);
+
+const CEX_MAP = {
+  'Binance': ['9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', '5tzFkiKscXHK5ZXCGbGuygQFGkPgeTe6HLFrCHKVMDKf', '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S'],
+  'Coinbase': ['H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS', 'GJRs4FwHtemZ5ZE9x3FNvJ8TMwitKTh21yxdRPqn7ZpA'],
+  'OKX': ['AC5RDfQFmDS1deWZos921JfqscXDP7uFSqFn3S2Wk2Bb', '6FEVkH17P9y8Q9aCkDdPcMDjvj7SVxrTETaYEm8f51Wt'],
+  'Kraken': ['FWznbcNXWQuHTawe9RxvQ2LdCENssh12dsznf4RiouN5'],
+  'MEXC': ['MEXCtLBF6AqgGFRnKt7jxbxHTdQhC3jcMrMXCqxJnJF'],
+};
+const CEX_BY_ADDRESS = new Map();
+for (const [cex, addrs] of Object.entries(CEX_MAP)) {
+  for (const a of addrs) CEX_BY_ADDRESS.set(a, cex);
+}
+
+/**
+ * For top 10 holders, resolve funding source via Helius and tally by CEX.
+ * Returns string like "Binance 28% | Coinbase 21% | Unknown 51%"
+ */
+async function analyzeCEXFunding(holders) {
+  if (!HELIUS_API_KEY || !Array.isArray(holders) || holders.length === 0) return 'N/A';
+  const top10 = holders.slice(0, 10);
+  const results = await Promise.allSettled(top10.map(async (h) => {
+    const address = typeof h === 'string' ? h : (h?.address || h?.owner);
+    const percent = parseFloat(h?.percent || h?.holding || 0) || 0;
+    if (!address) return { cex: 'Unknown', percent };
+    const sigs = await heliusRpc('getSignaturesForAddress', [address, { limit: 100 }]);
+    const arr = Array.isArray(sigs) ? sigs : [];
+    const oldest = arr[arr.length - 1];
+    const sig = typeof oldest === 'string' ? oldest : oldest?.signature;
+    if (!sig) return { cex: 'Unknown', percent };
+    const tx = await heliusRpc('getTransaction', [sig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+    if (!tx?.transaction?.message?.accountKeys?.length) return { cex: 'Unknown', percent };
+    const firstKey = tx.transaction.message.accountKeys[0];
+    const funder = (firstKey && typeof firstKey === 'object' && firstKey.pubkey) ? firstKey.pubkey : (typeof firstKey === 'string' ? firstKey : null);
+    const cex = funder ? (CEX_BY_ADDRESS.get(funder) || 'Unknown') : 'Unknown';
+    return { cex, percent };
+  }));
+  const tally = { Unknown: 0 };
+  const cexOrder = ['Binance', 'Coinbase', 'OKX', 'Kraken', 'MEXC'];
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const p = parseFloat(top10[i]?.percent || top10[i]?.holding || 0) || 0;
+    if (r.status === 'rejected') {
+      tally.Unknown = (tally.Unknown || 0) + p;
+    } else if (r.value && r.value.cex) {
+      const cex = r.value.cex;
+      tally[cex] = (tally[cex] || 0) + (r.value.percent ?? p);
+    } else {
+      tally.Unknown = (tally.Unknown || 0) + p;
+    }
+  }
+  const parts = [];
+  for (const cex of cexOrder) {
+    if (tally[cex] > 0) parts.push(`${cex} ${Math.round(tally[cex])}%`);
+  }
+  if (tally.Unknown > 0) parts.push(`Unknown ${Math.round(tally.Unknown)}%`);
+  return parts.length ? parts.join(' | ') : 'N/A';
+}
 
 function abbreviateWallet(addr) {
   if (!addr || typeof addr !== 'string') return '—';
@@ -610,6 +669,7 @@ async function processNewToken(ca, name, symbol) {
 
   if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
+  rug.cexFunding = await analyzeCEXFunding(sd.top_holders || []);
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
@@ -707,6 +767,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
     const priceUsd = pair?.priceUsd || 0;
     const logo = pair?.info?.imageUrl || null;
 
+    const cexFunding = await analyzeCEXFunding(sd.top_holders || []);
     const rugPayload = {
       ca,
       name,
@@ -721,6 +782,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       top10pct,
       bundle_label: bundleRisk.label,
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
+      cexFunding,
     };
 
     // DB 저장은 volume 무관하게 항상 수행
@@ -1134,6 +1196,7 @@ async function runScanInChat(chatId, contractAddress) {
         const frzStr = isFreezable ? '🚨 YES' : '✅ NO';
         const clStr = isClosable ? '🚨 YES' : '✅ NO';
         const top10str = 'N/A (Hidden in Pool/Curve)';
+        const cexStr = await analyzeCEXFunding(dbToken.top_holders || []);
         const aiAudit = await getAIAudit('SOLANA_TOKEN', {}, bundleLabel, finalRisk);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
@@ -1144,7 +1207,8 @@ async function runScanInChat(chatId, contractAddress) {
           `⚖️ <b>Balance Mutable:</b> ${mutStr}\n` +
           `🧊 <b>Freezable:</b> ${frzStr}\n` +
           `🗑️ <b>Closable:</b> ${clStr}\n` +
-          `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
+          `👥 <b>Top 10 Holders:</b> ${top10str}\n` +
+          `💰 <b>CEX:</b> ${cexStr}\n\n` +
           `🔗 <b>Bundle Scan:</b> ${bundleLabel}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
@@ -1156,7 +1220,14 @@ async function runScanInChat(chatId, contractAddress) {
         const sd      = data.result[key];
         const meta    = sd.metadata || {};
 
-        const top10str = 'N/A (Hidden in Pool/Curve)';
+        const holders = sd?.holders || sd?.top_holders || [];
+        let top10str = 'N/A';
+        if (Array.isArray(holders) && holders.length > 0) {
+          const top10 = holders.slice(0, 10);
+          const top10pct = top10.reduce((sum, h) => sum + parseFloat(h.percent || h.holding || 0), 0);
+          top10str = Math.round(top10pct) + '%';
+        }
+        const cexStr = await analyzeCEXFunding(holders);
         const bundleRisk = await getBundleRisk(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
@@ -1175,7 +1246,8 @@ async function runScanInChat(chatId, contractAddress) {
           `⚖️ <b>Balance Mutable:</b> ${mutStr}\n` +
           `🧊 <b>Freezable:</b> ${frzStr}\n` +
           `🗑️ <b>Closable:</b> ${clStr}\n` +
-          `👥 <b>Top 10 Holders:</b> ${top10str}\n\n` +
+          `👥 <b>Top 10 Holders:</b> ${top10str}\n` +
+          `💰 <b>CEX:</b> ${cexStr}\n\n` +
           `🔗 <b>Bundle Scan:</b> ${bundleLabel}\n\n` +
           `🧠 <b>AI Risk & Audit:</b> ${aiAudit}\n\n` +
           `💡 On-chain analysis complete. Tap below to snipe.`;
