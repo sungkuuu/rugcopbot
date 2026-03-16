@@ -271,7 +271,6 @@ async function tweetAlert(rug) {
     (flags || []).includes('FREEZABLE');
 
   // DANGER 알림: high bundle instantly, else risk>=70
-  const isHighBundle = (flags || []).includes('HIGH_BUNDLE');
   if (isHighBundle || risk >= 70) {
     const dangerMsg = `🚨 SCAM ALERT — $${symbol}
 
