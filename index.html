@@ -686,6 +686,12 @@ async function getScanResultHtml(ca){
       if (infoData && infoData.imageUrl) finalLogoUrl = String(infoData.imageUrl).trim();
     }
   } catch (e) {}
+  if (!finalLogoUrl && Array.isArray(allTokens)) {
+    const cached = allTokens.find(t => t.ca === ca_addr);
+    if (cached && (cached.logo || cached.logo_url)) {
+      finalLogoUrl = cached.logo || cached.logo_url;
+    }
+  }
   // If still no logo, try a second time (backend may use Helius getAsset as deeper fallback)
   if (!finalLogoUrl) {
     try {
