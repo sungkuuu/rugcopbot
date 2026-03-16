@@ -721,7 +721,7 @@ async function getScanResultHtml(ca){
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     ${caDisplay}
-    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.k === 'Bundle' ? ' style="grid-column:span 2"' : ''}${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     ${cexFundingBlock}
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
