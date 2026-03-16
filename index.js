@@ -660,6 +660,7 @@ async function processNewToken(ca, name, symbol) {
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
     };
     rug.logo = logo ?? null;
+    rug.cexFunding = (await analyzeCEXFunding([])).str;
     await saveRug({ ...rug, type: 'danger' });
     await tweetAlert({ ...rug, volume24h: 0, marketCap: 0, bundle_label: bundleRisk.label });
     return;
@@ -705,6 +706,7 @@ async function processNewToken(ca, name, symbol) {
 
   if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
+  rug.cexFunding = isHighBundle ? (await analyzeCEXFunding(sd?.top_holders || [])).str : 'N/A';
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
