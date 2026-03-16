@@ -249,8 +249,9 @@ async function tweetAlert(rug) {
   const volume24h = Number(rug.volume24h ?? 0);
   const minVolume = Number(process.env.ALERT_MIN_VOLUME || 1000);
   const minVol = Number.isFinite(minVolume) ? minVolume : 1000;
-  if (!Number.isFinite(volume24h) || volume24h < minVol) {
-    console.log(`⏭️ Alert skipped (low volume): $${rug.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
+  const isHighBundle = (flags || []).includes('HIGH_BUNDLE');
+  if (!isHighBundle && (!Number.isFinite(volume24h) || volume24h < minVol)) {
+    console.log(`⏭️ Alert skipped (low volume): $${rug?.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
     return;
   }
   const marketCap = rug.marketCap ?? 0;
