@@ -661,6 +661,12 @@ async function processNewToken(ca, name, symbol) {
     };
     rug.logo = logo ?? null;
     rug.cexFunding = (await analyzeCEXFunding([])).str;
+    const saveVolume = Number(rug.volume24h || 0);
+    if (saveVolume < 1000 && rug.name === 'Unknown' && rug.symbol === '???') return;
+    if (saveVolume < 5000 && (rug.name === 'Unknown' || !rug.name)) {
+      console.log(`⏭️ Skipping DB save — low volume + unknown name: $${saveVolume}`);
+      return;
+    }
     await saveRug({ ...rug, type: 'danger' });
     await tweetAlert({ ...rug, volume24h: 0, marketCap: 0, bundle_label: bundleRisk.label });
     return;
@@ -707,6 +713,12 @@ async function processNewToken(ca, name, symbol) {
   if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
   rug.cexFunding = isHighBundle ? (await analyzeCEXFunding(sd?.top_holders || [])).str : 'N/A';
+  const saveVolume = Number(rug.volume24h || 0);
+  if (saveVolume < 1000 && rug.name === 'Unknown' && rug.symbol === '???') return;
+  if (saveVolume < 5000 && (rug.name === 'Unknown' || !rug.name)) {
+    console.log(`⏭️ Skipping DB save — low volume + unknown name: $${saveVolume}`);
+    return;
+  }
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
@@ -751,6 +763,12 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
         bundle_label: bundleRisk.label,
         bundle_risk_add: bundleRisk.riskAdd ?? 0,
       };
+      const saveVolume = Number(rugPayload.volume24h || 0);
+      if (saveVolume < 1000 && rugPayload.name === 'Unknown' && rugPayload.symbol === '???') return;
+      if (saveVolume < 5000 && (rugPayload.name === 'Unknown' || !rugPayload.name)) {
+        console.log(`⏭️ Skipping DB save — low volume + unknown name: $${saveVolume}`);
+        return;
+      }
       await saveRug({ ...rugPayload, type: 'danger' });
       await tweetAlert({ ...rugPayload, volume24h, marketCap, bundle_label: bundleRisk.label });
       return;
@@ -821,7 +839,12 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       cexFunding: 'N/A',
     };
 
-    // DB 저장은 volume 무관하게 항상 수행
+    const saveVolume = Number(rugPayload.volume24h || 0);
+    if (saveVolume < 1000 && rugPayload.name === 'Unknown' && rugPayload.symbol === '???') return;
+    if (saveVolume < 5000 && (rugPayload.name === 'Unknown' || !rugPayload.name)) {
+      console.log(`⏭️ Skipping DB save — low volume + unknown name: $${saveVolume}`);
+      return;
+    }
     const type = finalRisk >= 70 ? 'danger' : finalRisk <= 30 ? 'clean' : 'neutral';
     await saveRug({ ...rugPayload, type });
 
