@@ -547,7 +547,7 @@ async function detectSniperBundle(ca) {
       }
       if (fp) snipers.add(fp);
     }
-    const sniperList = Array.from(snipers).slice(0, 30);
+    const sniperList = Array.from(snipers).slice(0, 10);
     console.log(`[Bundle] Snipers in 60s window: ${sniperList.length}`);
 
     if (sniperList.length === 0) return { label: 'N/A', riskAdd: 0 };
