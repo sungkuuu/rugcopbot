@@ -589,7 +589,7 @@ async function getScanResultHtml(ca){
       let compressedBundleLabel = bundleLabel;
       if (/HIGH|🔴/i.test(bundleLabel)) {
         const sniperMatch = bundleLabel.match(/(\d+)\s*snipers?/i);
-        compressedBundleLabel = sniperMatch ? `🔴 HIGH (${sniperMatch[1]})` : '🔴 HIGH';
+        compressedBundleLabel = sniperMatch ? `🔴 HIGH (${sniperMatch[1]} wallets)` : '🔴 HIGH';
       } else if (/MEDIUM|🟡/i.test(bundleLabel)) compressedBundleLabel = '🟡 MED RISK';
       else if (/NO OBVIOUS|✅/i.test(bundleLabel)) compressedBundleLabel = '✅ CLEAN';
       else if (/UNAVAILABLE|Volume too high|N\/A/i.test(bundleLabel)) compressedBundleLabel = '⚠️ N/A';
@@ -639,7 +639,7 @@ async function getScanResultHtml(ca){
     if(/HIGH|🔴/i.test(rawBundleLabel)){
       bundleClass='val-danger';
       const sniperMatch=rawBundleLabel.match(/(\d+)\s*snipers?/i);
-      compressedBundleLabel=sniperMatch?`🔴 HIGH (${sniperMatch[1]})`:'🔴 HIGH';
+      compressedBundleLabel=sniperMatch?`🔴 HIGH (${sniperMatch[1]} wallets)`:'🔴 HIGH';
     }else if(/MEDIUM|🟡/i.test(rawBundleLabel)){
       bundleClass='val-warn';
       compressedBundleLabel='🟡 MED RISK';
