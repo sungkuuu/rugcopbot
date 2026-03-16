@@ -247,8 +247,8 @@ async function tweetAlert(rug) {
   }
 
   const volume24h = Number(rug.volume24h ?? 0);
-  const minVolume = Number(process.env.ALERT_MIN_VOLUME || 8000);
-  const minVol = Number.isFinite(minVolume) ? minVolume : 8000;
+  const minVolume = Number(process.env.ALERT_MIN_VOLUME || 1000);
+  const minVol = Number.isFinite(minVolume) ? minVolume : 1000;
   if (!Number.isFinite(volume24h) || volume24h < minVol) {
     console.log(`⏭️ Alert skipped (low volume): $${rug.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
     return;
@@ -1328,6 +1328,25 @@ async function runScanInChat(chatId, contractAddress) {
     });
   }
 }
+
+bot.onText(/\/start/, async (msg) => {
+  await bot.sendMessage(msg.chat.id,
+    `🚨 <b>RUGCOP RADAR</b> 🚨\n\n` +
+    `On-chain token security scanner for Solana & Ethereum.\n\n` +
+    `<b>How to scan:</b>\n` +
+    `Just paste any contract address (CA) and I'll analyze it instantly.\n\n` +
+    `<b>Example (Solana):</b>\n` +
+    `<code>B2jVg7mdwzUGDeS63ZMHs6wHKchpTwBwZmuBJUZQEF3q</code>\n\n` +
+    `<b>What I check:</b>\n` +
+    `🔴 Bundle risk\n` +
+    `🧊 Freezable / Mutable\n` +
+    `👥 Top 10 holders\n` +
+    `💰 CEX funding source\n` +
+    `🧠 AI risk score\n\n` +
+    `Paste a CA to get started 👇`,
+    { parse_mode: 'HTML' }
+  );
+});
 
 bot.onText(/\/(cop|scan|shit)\s+(.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
