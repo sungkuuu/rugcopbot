@@ -525,7 +525,7 @@ async function loadFeed(){
     allTokens.forEach(async(t)=>{
       if(!t.ca||t.logo_url||t.logo)return;
       try{
-        const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.ca}`);
+        const r=await fetch(`https://rugcopbot-production.up.railway.app/api/dex/${t.ca}`);
         const d=await r.json();
         const logo=d.pairs?.[0]?.info?.imageUrl;
         if(logo){t.logo_url=logo;t.logo=logo;renderGrid();}
@@ -675,7 +675,7 @@ async function getScanResultHtml(ca){
 
   // Vol / MCap still from DexScreener pair when available
   try {
-    const dexRes = await fetch('https://api.dexscreener.com/latest/dex/tokens/' + encodeURIComponent(ca_addr));
+    const dexRes = await fetch('https://rugcopbot-production.up.railway.app/api/dex/' + encodeURIComponent(ca_addr));
     const dexData = await dexRes.json();
     const pair = dexData.pairs?.[0];
     if (pair) {
@@ -929,7 +929,7 @@ function openCardModal(ca) {
 
   // DexScreener 실시간 데이터로 모달 업데이트
   if (t.ca) {
-    fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.ca}`)
+    fetch(`https://rugcopbot-production.up.railway.app/api/dex/${t.ca}`)
       .then(r => r.json())
       .then(dex => {
         const pair = dex.pairs?.[0];

@@ -1033,6 +1033,17 @@ app.get('/api/token-info', async (req, res) => {
   return res.json({ ca, imageUrl: null });
 });
 
+app.get('/api/dex/:ca', async (req, res) => {
+  const ca = req.params.ca;
+  try {
+    const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+    const data = await r.json();
+    res.json(data);
+  } catch(e) {
+    res.json({ pairs: [] });
+  }
+});
+
 // One-off / admin: remove legacy rows with risk 50 + PENDING_GOPLUS in flags (JSON/text)
 app.get('/admin/cleanup', async (req, res) => {
   if (!process.env.DATABASE_URL) {
