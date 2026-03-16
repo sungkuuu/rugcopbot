@@ -545,16 +545,6 @@ async function loadFeed(){
     const res=await fetch(API);
     const json=await res.json();
     allTokens=Array.isArray(json)?json:[];
-    // Fetch logos from DexScreener in background
-    allTokens.forEach(async(t)=>{
-      if(!t.ca||t.logo_url||t.logo)return;
-      try{
-        const r=await fetch(`https://rugcopbot-production.up.railway.app/api/dex/${t.ca}`);
-        const d=await r.json();
-        const logo=d.pairs?.[0]?.info?.imageUrl;
-        if(logo){t.logo_url=logo;t.logo=logo;renderGrid();}
-      }catch(e){}
-    });
     renderGrid();
   }catch(e){document.getElementById('tokenGrid').innerHTML='<div class="empty-state">MONITORING LIVE...</div>';}
 }
