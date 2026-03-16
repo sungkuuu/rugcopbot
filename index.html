@@ -589,7 +589,7 @@ async function getScanResultHtml(ca){
       let compressedBundleLabel = bundleLabel;
       if (/HIGH|🔴/i.test(bundleLabel)) {
         const sniperMatch = bundleLabel.match(/(\d+)\s*snipers?/i);
-        compressedBundleLabel = sniperMatch ? `🔴 HIGH<br><span style="font-size:10px;opacity:0.7">(${sniperMatch[1]} wallets)</span>` : '🔴 HIGH';
+        compressedBundleLabel = sniperMatch ? `🔴 HIGH<br><small style="font-size:9px;opacity:0.7">(${sniperMatch[1]} wallets)</small>` : '🔴 HIGH';
       } else if (/MEDIUM|🟡/i.test(bundleLabel)) compressedBundleLabel = '🟡 MED RISK';
       else if (/NO OBVIOUS|✅/i.test(bundleLabel)) compressedBundleLabel = '✅ CLEAN';
       else if (/UNAVAILABLE|Volume too high|N\/A/i.test(bundleLabel)) compressedBundleLabel = '⚠️ N/A';
@@ -639,7 +639,7 @@ async function getScanResultHtml(ca){
     if(/HIGH|🔴/i.test(rawBundleLabel)){
       bundleClass='val-danger';
       const sniperMatch=rawBundleLabel.match(/(\d+)\s*snipers?/i);
-      compressedBundleLabel=sniperMatch?`🔴 HIGH<br><span style="font-size:10px;opacity:0.7">(${sniperMatch[1]} wallets)</span>`:'🔴 HIGH';
+      compressedBundleLabel=sniperMatch?`🔴 HIGH<br><small style="font-size:9px;opacity:0.7">(${sniperMatch[1]} wallets)</small>`:'🔴 HIGH';
     }else if(/MEDIUM|🟡/i.test(rawBundleLabel)){
       bundleClass='val-warn';
       compressedBundleLabel='🟡 MED RISK';
@@ -721,7 +721,7 @@ async function getScanResultHtml(ca){
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     ${caDisplay}
-    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.k === 'Bundle' ? ' style="grid-column:span 2"' : ''}${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
     ${cexFundingBlock}
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
