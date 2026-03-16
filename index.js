@@ -249,6 +249,7 @@ async function tweetAlert(rug) {
   const volume24h = Number(rug.volume24h ?? 0);
   const minVolume = Number(process.env.ALERT_MIN_VOLUME || 1000);
   const minVol = Number.isFinite(minVolume) ? minVolume : 1000;
+  const { name, symbol, ca, chain, risk, flags } = rug;
   const isHighBundle = (flags || []).includes('HIGH_BUNDLE');
   if (!isHighBundle && (!Number.isFinite(volume24h) || volume24h < minVol)) {
     console.log(`⏭️ Alert skipped (low volume): $${rug?.symbol || '?'} vol24h=${volume24h} < ${minVol}`);
@@ -257,7 +258,6 @@ async function tweetAlert(rug) {
   const marketCap = rug.marketCap ?? 0;
   const top10pct = rug.top10pct != null ? rug.top10pct : 0;
   const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
-  const { name, symbol, ca, chain, risk, flags } = rug;
   const chainStr = chain || 'SOL';
 
   if (!symbol || symbol === '???') return;
