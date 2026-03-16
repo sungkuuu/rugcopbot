@@ -1267,8 +1267,7 @@ async function runScanInChat(chatId, contractAddress) {
         const frzStr = isFreezable ? '🚨 YES' : '✅ NO';
         const clStr = isClosable ? '🚨 YES' : '✅ NO';
         const top10str = 'N/A (Hidden in Pool/Curve)';
-        const cexResult = await analyzeCEXFunding(dbToken.top_holders || []);
-        const cexStr = cexResult.str;
+        const cexStr = dbToken.cex_funding || 'N/A';
         const aiAudit = await getAIAudit('SOLANA_TOKEN', {}, bundleLabel, finalRisk);
         resultMsg =
           `🚓 <b>RUGCOP INSPECTION REPORT</b> 🚓\n\n` +
@@ -1299,8 +1298,7 @@ async function runScanInChat(chatId, contractAddress) {
           const top10pct = top10.reduce((sum, h) => sum + parseFloat(h.percent || h.holding || 0), 0);
           top10str = Math.round(top10pct) + '%';
         }
-        const cexResult = await analyzeCEXFunding(holders);
-        const cexStr = cexResult.str;
+        const cexStr = 'N/A';
         const bundleRisk = await getBundleRisk(contractAddress);
         const bundleLabel = bundleRisk.label;
         const bundleRiskAdd = bundleRisk.riskAdd || 0;
