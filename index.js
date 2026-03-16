@@ -705,12 +705,6 @@ async function processNewToken(ca, name, symbol) {
 
   if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
   rug.logo = logo ?? null;
-  const cexResult = await analyzeCEXFunding(sd.top_holders || []);
-  rug.cexFunding = cexResult.str;
-  const cexRiskAdd = calcCEXRiskAdd(rug.cexFunding);
-  rug.risk += cexRiskAdd;
-  rug.risk = Math.min(99, rug.risk);
-  if (cexRiskAdd > 0) rug.flags.push('CEX_ANON');
   await saveRug(rug);
   if (rug.risk >= 80 || rug.risk <= 30) await tweetAlert(rug);
 }
@@ -790,11 +784,6 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       flags.push('DEV_WHALE');
     }
 
-    const cexResult = await analyzeCEXFunding(sd.top_holders || []);
-    const cexRiskAdd = calcCEXRiskAdd(cexResult.str);
-    risk += cexRiskAdd;
-    if (cexRiskAdd > 0) flags.push('CEX_ANON');
-
     if (risk < 10) risk = 10;
     const finalRisk = Math.min(99, risk);
     console.log('[scanOneSolanaToken] flags:', flags);
@@ -827,7 +816,7 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
       top10pct,
       bundle_label: bundleRisk.label,
       bundle_risk_add: bundleRisk.riskAdd ?? 0,
-      cexFunding: cexResult.str,
+      cexFunding: 'N/A',
     };
 
     // DB 저장은 volume 무관하게 항상 수행
