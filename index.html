@@ -427,6 +427,7 @@ function buildCard(t){
   const initials=(t.symbol&&t.symbol!=='???'?t.symbol.replace('$','').slice(0,3):t.name?t.name.slice(0,2):'??').toUpperCase();
   const firstChar=String((t.name||t.symbol||'?')||'?')[0].toUpperCase();
   const imgContent=`<img src="${String(logoUrl).replace(/"/g,'&quot;')}"
+        data-ca="${String(ca).replace(/"/g,'&quot;')}"
         onerror="this.onerror=null; this.style.display='none'; this.parentElement.querySelector('.token-initial')?.style.setProperty('display','flex')"
    style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1">`;
   const fallback=`<div class="token-initial" style="display:${logoUrl ? 'none' : 'flex'}; width:60px; height:60px; background:#222; border-radius:50%; align-items:center; justify-content:center; font-size:18px; font-weight:bold; position:relative; z-index:1;">
@@ -514,6 +515,29 @@ function renderGrid(){
   document.getElementById('filterCount').textContent=data.length+' TOKENS';
   if(!data.length){grid.innerHTML='<div class="empty-state">NO TOKENS IN THIS FILTER YET — MONITORING LIVE...</div>';return;}
   grid.innerHTML=data.map(buildCard).join('');
+  // Backfill missing logos via TOKEN_INFO for cards with empty src
+  try {
+    grid.querySelectorAll('.token-card .tc-img img[data-ca]').forEach(img => {
+      if (img.getAttribute('src')) return;
+      const ca = img.getAttribute('data-ca');
+      if (!ca) return;
+      (async () => {
+        try {
+          const res = await fetch(TOKEN_INFO + '?ca=' + encodeURIComponent(ca));
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data && data.imageUrl) {
+            const url = String(data.imageUrl).trim();
+            if (!url) return;
+            img.src = url.replace(/"/g,'&quot;');
+            img.style.display = 'block';
+            const initial = img.parentElement.querySelector('.token-initial');
+            if (initial) initial.style.display = 'none';
+          }
+        } catch(e) {}
+      })();
+    });
+  } catch(e) {}
 }
 
 async function loadFeed(){
@@ -664,7 +688,7 @@ async function getScanResultHtml(ca){
   let liveVol = 0, liveMcap = 0;
   let finalLogoUrl = '';
 
-  // Token logo from our server (token-profiles + tokens/v1 fallback); avoids slow/missing DexScreener indexing in browser
+  // Token logo from our server (token-profiles + tokens/v1 + Helius getAsset fallback)
   try {
     const infoRes = await fetch(TOKEN_INFO + '?ca=' + encodeURIComponent(ca_addr));
     if (infoRes.ok) {
@@ -672,6 +696,16 @@ async function getScanResultHtml(ca){
       if (infoData && infoData.imageUrl) finalLogoUrl = String(infoData.imageUrl).trim();
     }
   } catch (e) {}
+  // If still no logo, try a second time (backend may use Helius getAsset as deeper fallback)
+  if (!finalLogoUrl) {
+    try {
+      const infoRes2 = await fetch('https://rugcopbot-production.up.railway.app/api/token-info?ca=' + encodeURIComponent(ca_addr));
+      if (infoRes2.ok) {
+        const infoData2 = await infoRes2.json();
+        if (infoData2 && infoData2.imageUrl) finalLogoUrl = String(infoData2.imageUrl).trim();
+      }
+    } catch (e) {}
+  }
 
   // Vol / MCap still from DexScreener pair when available
   try {
