@@ -715,10 +715,14 @@ async function getScanResultHtml(ca){
     <button onclick="navigator.clipboard.writeText(${JSON.stringify(ca_addr)}); this.innerText='Copied!'; this.style.backgroundColor='#4ade80'; this.style.color='#000'; setTimeout(function(){this.innerText='Copy'; this.style.backgroundColor='#374151'; this.style.color='#fff';}.bind(this), 2000);" style="padding: 6px 14px; background-color: #374151; color: #fff; border: 1px solid #4B5563; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; flex-shrink: 0; transition: background-color 0.2s;">Copy</button>
   </div>`;
 
+  const cexFundingBlock = (dbToken?.cex_funding && dbToken.cex_funding !== 'N/A') ? `<div style="font-size:9px;color:var(--muted);padding:10px 12px;border:1px solid var(--border);margin-bottom:8px;">
+    💰 CEX FUNDED: <span style="color:var(--text)">${dbToken.cex_funding}</span>
+  </div>` : '';
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     ${caDisplay}
     <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    ${cexFundingBlock}
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
   </div>`;

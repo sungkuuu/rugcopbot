@@ -87,14 +87,14 @@ async function saveRug(rug) {
   }
   try {
     await pool.query(
-      `INSERT INTO tokens (ca, name, symbol, chain, risk, risk_score, flags, volume24h, market_cap, logo, type, bundle_label, bundle_risk_add)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      `INSERT INTO tokens (ca, name, symbol, chain, risk, risk_score, flags, volume24h, market_cap, logo, type, bundle_label, bundle_risk_add, cex_funding)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        ON CONFLICT (ca) DO UPDATE SET
         name=EXCLUDED.name, symbol=EXCLUDED.symbol, chain=EXCLUDED.chain, risk=EXCLUDED.risk, risk_score=EXCLUDED.risk_score,
         flags=EXCLUDED.flags, volume24h=EXCLUDED.volume24h, market_cap=EXCLUDED.market_cap,
          logo=EXCLUDED.logo, type=EXCLUDED.type,
-         bundle_label=EXCLUDED.bundle_label, bundle_risk_add=EXCLUDED.bundle_risk_add`,
-      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean', rug.bundle_label ?? null, rug.bundle_risk_add ?? null]
+         bundle_label=EXCLUDED.bundle_label, bundle_risk_add=EXCLUDED.bundle_risk_add, cex_funding=EXCLUDED.cex_funding`,
+      [rug.ca, rug.name, rug.symbol, rug.chain || 'SOL', rug.risk, rug.risk, JSON.stringify(rug.flags || []), rug.volume24h ?? null, rug.marketCap ?? null, rug.logo ?? null, rug.type || 'clean', rug.bundle_label ?? null, rug.bundle_risk_add ?? null, rug.cexFunding ?? null]
     );
     console.log(`💾 Rug saved: ${rug.name} (${rug.ca.slice(0,8)}...)`);
   } catch(e) {
@@ -1093,6 +1093,7 @@ app.listen(PORT, async () => {
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS risk_score INTEGER');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_label TEXT');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_risk_add INTEGER');
+      await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS cex_funding TEXT');
       console.log('✅ Tokens table ready');
     } catch(e) {
       console.error('DB table create error:', e.message);
