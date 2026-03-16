@@ -421,6 +421,7 @@ function getImgBg(risk){
 
 function buildCard(t){
   const isHigh=t.risk>=75, isSafe=t.risk<=30;
+  const ca=t.ca||'';
   const logoUrl=t.logo_url||t.logo||'';
   const marketCap=t.marketCap||t.market_cap||0;
   const volume24h=t.volume24h||0;
@@ -438,7 +439,6 @@ function buildCard(t){
   const verdictText=isHigh?'🚨 DANGER':isSafe?'✅ SAFE':'⚠️ CAUTION';
   const name=t.name&&t.name!=='Unknown'?t.name:(t.symbol&&t.symbol!=='???'?t.symbol:'UNKNOWN');
   const sym=t.symbol&&t.symbol!=='???'?'$'+t.symbol:'';
-  const ca=t.ca||'';
   const chain=t.chain||'SOL';
   const tago=t.timestamp?timeAgo(t.timestamp):'';
   const caOnclick=ca.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
