@@ -772,8 +772,9 @@ async function doScan(ca){
         if (data.holders && data.holders.length > 0) {
           const el = document.getElementById('scan-top10');
           if (el) {
+            const abbrev = (addr) => (addr && addr.length > 12) ? (addr.slice(0, 8) + '...' + addr.slice(-4)) : (addr || '—');
             const top3 = data.holders.slice(0, 3)
-              .map(h => `<span style="display:block;font-size:9px">${(h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%'}</span>`).join('');
+              .map(h => `<span style="display:block;font-size:11px;line-height:1.5">${abbrev(h.address)} | ${(Number(h.percent) || 0).toFixed(1)}%</span>`).join('');
             el.innerHTML = top3;
             if (data.concentrationWarning) {
               const warn = document.createElement('div');
