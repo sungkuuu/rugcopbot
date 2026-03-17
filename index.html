@@ -751,7 +751,7 @@ async function getScanResultHtml(ca){
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     ${caDisplay}
-    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}"${f.k === 'Top 10' ? ' id="scan-top10"' : ''}>${f.v}</span></div>`).join('')}</div>
+    <div class="result-flags" style="grid-template-columns:1fr 1fr">${flags.map(f => `<div class="rflag"${f.k === 'Top 10' ? ' style="grid-column: span 2"' : ''}${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}"${f.k === 'Top 10' ? ' id="scan-top10"' : ''}>${f.v}</span></div>`).join('')}</div>
     ${cexFundingBlock}
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
@@ -768,15 +768,17 @@ async function doScan(ca){
       .then(r => r.json())
       .then(data => {
         if (data.holders && data.holders.length > 0) {
-          const top3 = data.holders.slice(0, 3)
-            .map(h => (h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%').join('<br>');
           const el = document.getElementById('scan-top10');
-          if (el) el.innerHTML = top3;
-          if (data.concentrationWarning) {
-            const warn = document.createElement('div');
-            warn.style.cssText = 'color:#ff4444;font-size:10px;margin-top:4px';
-            warn.textContent = '⚠️ ' + data.concentrationWarning;
-            if (el) el.parentNode.appendChild(warn);
+          if (el) {
+            const top3 = data.holders.slice(0, 3)
+              .map(h => `<span style="display:block;font-size:9px">${(h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%'}</span>`).join('');
+            el.innerHTML = top3;
+            if (data.concentrationWarning) {
+              const warn = document.createElement('div');
+              warn.style.cssText = 'color:#ff4444;font-size:10px;margin-top:4px';
+              warn.textContent = '⚠️ ' + data.concentrationWarning;
+              el.parentNode.appendChild(warn);
+            }
           }
         }
       }).catch(() => {});
