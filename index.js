@@ -1073,9 +1073,22 @@ app.get('/api/dex/:ca', async (req, res) => {
   }
 });
 
+function getConcentration(holders) {
+  const top1 = holders[0]?.percent || 0;
+  const top2 = (holders[0]?.percent || 0) + (holders[1]?.percent || 0);
+  const top3 = top2 + (holders[2]?.percent || 0);
+  let concentrationRisk = 0;
+  let concentrationWarning = '';
+  if (top1 > 50) { concentrationRisk = 20; concentrationWarning = `Top holder owns ${top1.toFixed(1)}%`; }
+  if (top2 > 80) { concentrationRisk = 25; concentrationWarning = `Top 2 holders own ${top2.toFixed(1)}%`; }
+  if (top3 > 90) { concentrationRisk = 30; concentrationWarning = `Top 3 holders own ${top3.toFixed(1)}%`; }
+  return { concentrationRisk, concentrationWarning };
+}
+
 app.get('/api/holders/:ca', async (req, res) => {
   const ca = req.params.ca;
-  if (!ca) return res.json([]);
+  const empty = () => res.json({ holders: [], concentrationRisk: 0, concentrationWarning: '' });
+  if (!ca) return empty();
   if (process.env.DATABASE_URL) {
     try {
       const row = await pool.query('SELECT top_holders FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
@@ -1083,33 +1096,36 @@ app.get('/api/holders/:ca', async (req, res) => {
       if (raw != null && raw !== '') {
         try {
           const parsed = JSON.parse(raw);
-          return res.json(Array.isArray(parsed) ? parsed : []);
+          const holders = Array.isArray(parsed) ? parsed : [];
+          const { concentrationRisk, concentrationWarning } = getConcentration(holders);
+          return res.json({ holders, concentrationRisk, concentrationWarning });
         } catch (e) {}
       }
     } catch (e) {}
   }
-  if (!HELIUS_API_KEY) return res.json([]);
+  if (!HELIUS_API_KEY) return empty();
   try {
     const result = await heliusRpc('getTokenLargestAccounts', [ca]);
     const value = result?.value;
-    if (!Array.isArray(value) || value.length === 0) return res.json([]);
+    if (!Array.isArray(value) || value.length === 0) return empty();
     const total = value.reduce((sum, i) => sum + (Number(i.uiAmount) || 0), 0);
-    if (total <= 0) return res.json([]);
-    const top10 = value.slice(0, 10).map((i) => ({
+    if (total <= 0) return empty();
+    const holders = value.slice(0, 10).map((i) => ({
       address: i.address,
       amount: i.amount,
       uiAmount: Number(i.uiAmount) || 0,
       percent: (Number(i.uiAmount) || 0) / total * 100,
     }));
-    const toStore = JSON.stringify(top10);
+    const toStore = JSON.stringify(holders);
     if (process.env.DATABASE_URL) {
       try {
         await pool.query('UPDATE tokens SET top_holders = $1 WHERE ca = $2', [toStore, ca]);
       } catch (e) {}
     }
-    return res.json(top10);
+    const { concentrationRisk, concentrationWarning } = getConcentration(holders);
+    return res.json({ holders, concentrationRisk, concentrationWarning });
   } catch (e) {
-    return res.json([]);
+    return empty();
   }
 });
 

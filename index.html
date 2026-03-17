@@ -972,7 +972,8 @@ function openCardModal(ca) {
   if (t.ca) {
     fetch(`https://rugcopbot-production.up.railway.app/api/holders/${encodeURIComponent(t.ca)}`)
       .then(r => r.json())
-      .then(holders => {
+      .then(data => {
+        const holders = data && data.holders;
         if (!Array.isArray(holders) || holders.length === 0) return;
         const allRflags = content.querySelectorAll('.rflag');
         allRflags.forEach(rf => {
@@ -982,7 +983,20 @@ function openCardModal(ca) {
           if (key.textContent.trim() !== 'Top 10 Holders') return;
           const abbrev = (addr) => (addr && addr.length > 10) ? (addr.slice(0, 6) + '...' + addr.slice(-4)) : (addr || '—');
           val.innerHTML = holders.map(h => `${abbrev(h.address)} | ${(Number(h.percent) || 0).toFixed(1)}%`).join('<br>');
+          if (data.concentrationWarning) {
+            const warn = document.createElement('div');
+            warn.style.cssText = 'color:#ff4444;font-size:11px;margin-top:6px';
+            warn.textContent = '⚠️ ' + data.concentrationWarning;
+            rf.appendChild(warn);
+          }
         });
+        if (data.concentrationRisk != null && data.concentrationRisk > 0) {
+          const riskPill = content.querySelector('.risk-pill');
+          if (riskPill) {
+            const base = Number(t.risk) || 0;
+            riskPill.textContent = Math.min(99, base + Number(data.concentrationRisk)) + '%';
+          }
+        }
       })
       .catch(() => {});
   }
