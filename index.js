@@ -661,12 +661,6 @@ async function processNewToken(ca, name, symbol) {
     };
     rug.logo = logo ?? null;
     rug.cexFunding = (await analyzeCEXFunding([])).str;
-    const saveVolume = Number(rug.volume24h || 0);
-    if (saveVolume < 1000 && rug.name === 'Unknown' && rug.symbol === '???') return;
-    if (saveVolume < 5000 && (rug.name === 'Unknown' || !rug.name)) {
-      console.log(`⏭️ Skipping DB save — low volume + unknown name: $${saveVolume}`);
-      return;
-    }
     await saveRug({ ...rug, type: 'danger' });
     await tweetAlert({ ...rug, volume24h: 0, marketCap: 0, bundle_label: bundleRisk.label });
     return;
