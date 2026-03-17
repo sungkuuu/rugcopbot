@@ -751,7 +751,7 @@ async function getScanResultHtml(ca){
   return `<div class="result-card">
     <div class="result-header"><div class="result-header-left">${logoImg}<div><div class="result-name">${name}</div><div class="result-sym">$${sym} · ${chain}</div></div></div><span class="risk-pill ${rc}">${risk}%</span></div>
     ${caDisplay}
-    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}">${f.v}</span></div>`).join('')}</div>
+    <div class="result-flags">${flags.map(f => `<div class="rflag"${f.title != null ? ` title="${String(f.title).replace(/"/g,'&quot;')}"` : ''}><span class="rflag-key">${f.k}</span><span class="rflag-val ${f.c}"${f.k === 'Top 10' ? ' id="scan-top10"' : ''}>${f.v}</span></div>`).join('')}</div>
     ${cexFundingBlock}
     <div class="result-verdict">${v}</div>
     <div class="result-actions">${btnBanana}</div>
@@ -764,6 +764,17 @@ async function doScan(ca){
   box.innerHTML='<div class="loading"><div class="spin"></div> Scanning on-chain data...</div>';
   try{
     box.innerHTML=await getScanResultHtml(ca);
+    fetch('https://rugcopbot-production.up.railway.app/api/holders/' + encodeURIComponent(ca))
+      .then(r => r.json())
+      .then(holders => {
+        if (holders && holders.length > 0) {
+          const el = document.getElementById('scan-top10');
+          if (el) {
+            const top3 = holders.slice(0, 3).map(h => (h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%').join('<br>');
+            el.innerHTML = top3;
+          }
+        }
+      }).catch(() => {});
   }catch(e){box.innerHTML='<div class="result-card" style="padding:20px"><div style="font-size:9px;color:#d94535;text-align:center;">Scan failed. Try Telegram bot.</div></div>';}
 }
 
