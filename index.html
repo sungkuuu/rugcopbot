@@ -612,9 +612,9 @@ async function getScanResultHtml(ca){
       flags = [
         { k: 'Freezable', v: fz ? '🚨 YES' : '✅ NO', c: fz ? 'val-danger' : 'val-safe' },
         { k: 'Mutable', v: mu ? '🚨 YES' : '✅ NO', c: mu ? 'val-danger' : 'val-safe' },
-        { k: 'Top 10', v: top10str, c: (dbToken.top10pct != null && dbToken.top10pct > 80) ? 'val-danger' : (dbToken.top10pct != null && dbToken.top10pct > 50) ? 'val-warn' : 'val-safe' },
         { k: 'Closable', v: cl ? '🚨 YES' : '✅ NO', c: cl ? 'val-danger' : 'val-safe' },
-        { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel }
+        { k: 'Bundle', v: compressedBundleLabel, c: bundleClass, title: bundleLabel },
+        { k: 'Top 10', v: top10str, c: (dbToken.top10pct != null && dbToken.top10pct > 80) ? 'val-danger' : (dbToken.top10pct != null && dbToken.top10pct > 50) ? 'val-warn' : 'val-safe' }
       ];
     } else {
     chain='SOL';
@@ -664,7 +664,7 @@ async function getScanResultHtml(ca){
     }
     risk=Math.min(99,risk+bundleRiskAdd);
     rc=risk>=70?'risk-high':risk>=40?'risk-mid':'risk-low';
-    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:compressedBundleLabel,c:bundleClass,title:detailedMsg}];
+    flags=[{k:'Freezable',v:fz?'🚨 YES':'✅ NO',c:fz?'val-danger':'val-safe'},{k:'Mutable',v:mu?'🚨 YES':'✅ NO',c:mu?'val-danger':'val-safe'},{k:'Closable',v:cl?'🚨 YES':'✅ NO',c:cl?'val-danger':'val-safe'},{k:'Bundle',v:compressedBundleLabel,c:bundleClass,title:detailedMsg},{k:'Top 10',v:top10+'%',c:top10>80?'val-danger':top10>50?'val-warn':'val-safe'}];
     }
   }
   const v=risk>=80?'<strong>🚨 HIGH RISK</strong> — Critical flags. Avoid.':risk>=50?'<strong>⚠️ MEDIUM RISK</strong> — Proceed with extreme caution.':risk>=20?'<strong>🟡 LOW-MED RISK</strong> — Minor flags. Always DYOR.':'<strong>✅ LOOKS CLEAN</strong> — No major flags detected. DYOR before aping.';
@@ -733,9 +733,11 @@ async function getScanResultHtml(ca){
   const finalVol = (dbToken && Number(dbToken.volume24h) > 0) ? Number(dbToken.volume24h) : liveVol;
   const finalMcap = (dbToken && Number(dbToken.marketCap || dbToken.market_cap) > 0) ? Number(dbToken.marketCap || dbToken.market_cap) : liveMcap;
 
-  flags = flags.filter(f => f.k !== 'Vol 24h' && f.k !== 'MCap');
+  const top10Flag = flags.find(f => f.k === 'Top 10');
+  flags = flags.filter(f => f.k !== 'Vol 24h' && f.k !== 'MCap' && f.k !== 'Top 10');
   flags.push({ k: 'Vol 24h', v: formatUsd(finalVol), c: 'val-safe' });
   flags.push({ k: 'MCap', v: formatUsd(finalMcap), c: 'val-safe' });
+  if (top10Flag) flags.push(top10Flag);
 
   const caAddrEsc = String(ca_addr).replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const caDisplay = `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
