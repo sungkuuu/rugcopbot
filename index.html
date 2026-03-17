@@ -766,12 +766,17 @@ async function doScan(ca){
     box.innerHTML=await getScanResultHtml(ca);
     fetch('https://rugcopbot-production.up.railway.app/api/holders/' + encodeURIComponent(ca))
       .then(r => r.json())
-      .then(holders => {
-        if (holders && holders.length > 0) {
+      .then(data => {
+        if (data.holders && data.holders.length > 0) {
+          const top3 = data.holders.slice(0, 3)
+            .map(h => (h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%').join('<br>');
           const el = document.getElementById('scan-top10');
-          if (el) {
-            const top3 = holders.slice(0, 3).map(h => (h.address || '') + ' | ' + (Number(h.percent) || 0).toFixed(1) + '%').join('<br>');
-            el.innerHTML = top3;
+          if (el) el.innerHTML = top3;
+          if (data.concentrationWarning) {
+            const warn = document.createElement('div');
+            warn.style.cssText = 'color:#ff4444;font-size:10px;margin-top:4px';
+            warn.textContent = '⚠️ ' + data.concentrationWarning;
+            if (el) el.parentNode.appendChild(warn);
           }
         }
       }).catch(() => {});
