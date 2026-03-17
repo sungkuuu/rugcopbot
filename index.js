@@ -648,10 +648,20 @@ async function processNewToken(ca, name, symbol) {
       logo = dexData.pairs?.[0]?.info?.imageUrl || null;
     } catch(e) {}
     if (!logo && metaFromHelius.image) logo = metaFromHelius.image;
+    let dexName = name, dexSymbol = symbol;
+    try {
+      const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+      const dexData = await dexRes.json();
+      const pair = dexData.pairs?.[0];
+      if (pair) {
+        dexName = pair.baseToken?.name || name || 'Unknown';
+        dexSymbol = pair.baseToken?.symbol || symbol || '???';
+      }
+    } catch(e) {}
     const rug = {
       ca,
-      name: name || metaFromHelius.name || 'Unknown',
-      symbol: symbol || metaFromHelius.symbol || '???',
+      name: dexName || metaFromHelius.name || 'Unknown',
+      symbol: dexSymbol || metaFromHelius.symbol || '???',
       chain: 'SOL',
       risk: 85,
       flags: ['HIGH_BUNDLE'],
