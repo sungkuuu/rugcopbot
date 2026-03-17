@@ -957,10 +957,10 @@ function openCardModal(ca) {
     <div class="result-flags" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px">
       <div class="rflag"><span class="rflag-key">Mutable</span><span class="rflag-val ${isMutable ? 'val-danger' : 'val-safe'}">${isMutable ? '🚨 YES' : '✅ NO'}</span></div>
       <div class="rflag"><span class="rflag-key">Freezable</span><span class="rflag-val ${isFreezable ? 'val-danger' : 'val-safe'}">${isFreezable ? '🚨 YES' : '✅ NO'}</span></div>
-      <div class="rflag"><span class="rflag-key">Top 10 Holders</span><span class="rflag-val val-safe">${top10str}</span></div>
-      <div class="rflag"><span class="rflag-key">Bundle Risk</span><span class="rflag-val val-safe">${String(bundleLabel).replace(/</g, '&lt;')}</span></div>
       <div class="rflag"><span class="rflag-key">Volume 24h</span><span class="rflag-val val-safe">${formattedVol}</span></div>
       <div class="rflag"><span class="rflag-key">MCap</span><span class="rflag-val val-safe">${formattedMcap}</span></div>
+      <div class="rflag"><span class="rflag-key">Top 10 Holders</span><span class="rflag-val val-safe">${top10str}</span></div>
+      <div class="rflag"><span class="rflag-key">Bundle Risk</span><span class="rflag-val val-safe">${String(bundleLabel).replace(/</g, '&lt;')}</span></div>
     </div>
     ${flagsStr ? `<div style="margin-top:10px;font-size:9px;flex-wrap:wrap;display:flex">${flagsStr}</div>` : ''}
     <div class="result-actions" style="margin-top:12px">
