@@ -1074,14 +1074,15 @@ app.get('/api/dex/:ca', async (req, res) => {
 });
 
 function getConcentration(holders) {
-  const top1 = holders[0]?.percent || 0;
-  const top2 = (holders[0]?.percent || 0) + (holders[1]?.percent || 0);
-  const top3 = top2 + (holders[2]?.percent || 0);
+  const top1 = Number(holders[0]?.percent) || 0;
+  const top2 = top1 + (Number(holders[1]?.percent) || 0);
+  const top3 = top2 + (Number(holders[2]?.percent) || 0);
   let concentrationRisk = 0;
   let concentrationWarning = '';
-  if (top1 > 50) { concentrationRisk = 20; concentrationWarning = `Top holder owns ${top1.toFixed(1)}%`; }
-  if (top2 > 80) { concentrationRisk = 25; concentrationWarning = `Top 2 holders own ${top2.toFixed(1)}%`; }
-  if (top3 > 90) { concentrationRisk = 30; concentrationWarning = `Top 3 holders own ${top3.toFixed(1)}%`; }
+  if (top1 > 70) { concentrationRisk = 50; concentrationWarning = `Top holder owns ${top1.toFixed(1)}%`; }
+  else if (top1 > 50) { concentrationRisk = 30; concentrationWarning = `Top holder owns ${top1.toFixed(1)}%`; }
+  if (top2 > 90) { concentrationRisk = Math.max(concentrationRisk, 55); concentrationWarning = `Top 2 holders own ${top2.toFixed(1)}%`; }
+  if (top3 > 95) { concentrationRisk = Math.max(concentrationRisk, 60); concentrationWarning = `Top 3 holders own ${top3.toFixed(1)}%`; }
   return { concentrationRisk, concentrationWarning };
 }
 
@@ -1096,8 +1097,17 @@ app.get('/api/holders/:ca', async (req, res) => {
       if (raw != null && raw !== '') {
         try {
           const parsed = JSON.parse(raw);
-          const holders = Array.isArray(parsed) ? parsed : [];
-          const { concentrationRisk, concentrationWarning } = getConcentration(holders);
+          const allHolders = Array.isArray(parsed) ? parsed : [];
+          const { concentrationRisk, concentrationWarning } = getConcentration(allHolders);
+          const holders = allHolders.filter(h => parseFloat(h.percent) >= 0.1).slice(0, 5);
+          if (concentrationRisk > 0) {
+            try {
+              const riskRow = await pool.query('SELECT risk FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+              const baseRisk = Number(riskRow.rows[0]?.risk) || 0;
+              const newRisk = Math.min(99, baseRisk + concentrationRisk);
+              await pool.query('UPDATE tokens SET risk = $1 WHERE ca = $2', [newRisk, ca]);
+            } catch (e) {}
+          }
           return res.json({ holders, concentrationRisk, concentrationWarning });
         } catch (e) {}
       }
@@ -1110,19 +1120,28 @@ app.get('/api/holders/:ca', async (req, res) => {
     if (!Array.isArray(value) || value.length === 0) return empty();
     const total = value.reduce((sum, i) => sum + (Number(i.uiAmount) || 0), 0);
     if (total <= 0) return empty();
-    const holders = value.slice(0, 10).map((i) => ({
+    const allHolders = value.slice(0, 10).map((i) => ({
       address: i.address,
       amount: i.amount,
       uiAmount: Number(i.uiAmount) || 0,
       percent: (Number(i.uiAmount) || 0) / total * 100,
     }));
-    const toStore = JSON.stringify(holders);
+    const toStore = JSON.stringify(allHolders);
     if (process.env.DATABASE_URL) {
       try {
         await pool.query('UPDATE tokens SET top_holders = $1 WHERE ca = $2', [toStore, ca]);
       } catch (e) {}
     }
-    const { concentrationRisk, concentrationWarning } = getConcentration(holders);
+    const { concentrationRisk, concentrationWarning } = getConcentration(allHolders);
+    const holders = allHolders.filter(h => parseFloat(h.percent) >= 0.1).slice(0, 5);
+    if (concentrationRisk > 0 && process.env.DATABASE_URL) {
+      try {
+        const riskRow = await pool.query('SELECT risk FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+        const baseRisk = Number(riskRow.rows[0]?.risk) || 0;
+        const newRisk = Math.min(99, baseRisk + concentrationRisk);
+        await pool.query('UPDATE tokens SET risk = $1 WHERE ca = $2', [newRisk, ca]);
+      } catch (e) {}
+    }
     return res.json({ holders, concentrationRisk, concentrationWarning });
   } catch (e) {
     return empty();
