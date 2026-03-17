@@ -957,6 +957,25 @@ function openCardModal(ca) {
     </div>
   </div>`;
 
+  // Top 10 Holders from /api/holders
+  if (t.ca) {
+    fetch(`https://rugcopbot-production.up.railway.app/api/holders/${encodeURIComponent(t.ca)}`)
+      .then(r => r.json())
+      .then(holders => {
+        if (!Array.isArray(holders) || holders.length === 0) return;
+        const allRflags = content.querySelectorAll('.rflag');
+        allRflags.forEach(rf => {
+          const key = rf.querySelector('.rflag-key');
+          const val = rf.querySelector('.rflag-val');
+          if (!key || !val) return;
+          if (key.textContent.trim() !== 'Top 10 Holders') return;
+          const abbrev = (addr) => (addr && addr.length > 10) ? (addr.slice(0, 6) + '...' + addr.slice(-4)) : (addr || '—');
+          val.innerHTML = holders.map(h => `${abbrev(h.address)} | ${(Number(h.percent) || 0).toFixed(1)}%`).join('<br>');
+        });
+      })
+      .catch(() => {});
+  }
+
   // DexScreener 실시간 데이터로 모달 업데이트
   if (t.ca) {
     fetch(`https://rugcopbot-production.up.railway.app/api/dex/${t.ca}`)

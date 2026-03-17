@@ -1073,6 +1073,46 @@ app.get('/api/dex/:ca', async (req, res) => {
   }
 });
 
+app.get('/api/holders/:ca', async (req, res) => {
+  const ca = req.params.ca;
+  if (!ca) return res.json([]);
+  if (process.env.DATABASE_URL) {
+    try {
+      const row = await pool.query('SELECT top_holders FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+      const raw = row.rows[0]?.top_holders;
+      if (raw != null && raw !== '') {
+        try {
+          const parsed = JSON.parse(raw);
+          return res.json(Array.isArray(parsed) ? parsed : []);
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+  if (!HELIUS_API_KEY) return res.json([]);
+  try {
+    const result = await heliusRpc('getTokenLargestAccounts', [ca]);
+    const value = result?.value;
+    if (!Array.isArray(value) || value.length === 0) return res.json([]);
+    const total = value.reduce((sum, i) => sum + (Number(i.uiAmount) || 0), 0);
+    if (total <= 0) return res.json([]);
+    const top10 = value.slice(0, 10).map((i) => ({
+      address: i.address,
+      amount: i.amount,
+      uiAmount: Number(i.uiAmount) || 0,
+      percent: (Number(i.uiAmount) || 0) / total * 100,
+    }));
+    const toStore = JSON.stringify(top10);
+    if (process.env.DATABASE_URL) {
+      try {
+        await pool.query('UPDATE tokens SET top_holders = $1 WHERE ca = $2', [toStore, ca]);
+      } catch (e) {}
+    }
+    return res.json(top10);
+  } catch (e) {
+    return res.json([]);
+  }
+});
+
 // One-off / admin: remove legacy rows with risk 50 + PENDING_GOPLUS in flags (JSON/text)
 app.get('/admin/cleanup', async (req, res) => {
   if (!process.env.DATABASE_URL) {
@@ -1134,6 +1174,7 @@ app.listen(PORT, async () => {
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_label TEXT');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS bundle_risk_add INTEGER');
       await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS cex_funding TEXT');
+      await pool.query('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS top_holders TEXT');
       console.log('✅ Tokens table ready');
     } catch(e) {
       console.error('DB table create error:', e.message);
