@@ -547,7 +547,7 @@ async function detectSniperBundle(ca) {
       }
       if (fp) snipers.add(fp);
     }
-    const sniperList = Array.from(snipers).slice(0, 15);
+    const sniperList = Array.from(snipers).slice(0, 5);
     console.log(`[Bundle] Snipers in 60s window: ${sniperList.length}`);
 
     if (sniperList.length === 0) return { label: 'N/A', riskAdd: 0 };
@@ -556,7 +556,7 @@ async function detectSniperBundle(ca) {
     const fundingSources = {};
     for (const wallet of sniperList) {
       try {
-        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 100 }]);
+        const wsigs = await heliusRpc('getSignaturesForAddress', [wallet, { limit: 20 }]);
         const warr = Array.isArray(wsigs) ? wsigs : [];
         if (warr.length === 0) continue;
         const oldest = warr[warr.length - 1];
@@ -1098,7 +1098,7 @@ app.get('/api/holders/:ca', async (req, res) => {
         try {
           const parsed = JSON.parse(raw);
           const allHolders = Array.isArray(parsed) ? parsed : [];
-          const { concentrationRisk, concentrationWarning } = getConcentration(allHolders);
+          const { concentrationRisk, concentrationWarning } = getConcentration(allHolders.slice(0, 5));
           const holders = allHolders.filter(h => parseFloat(h.percent) >= 0.1).slice(0, 5);
           if (concentrationRisk > 0) {
             try {
@@ -1120,7 +1120,7 @@ app.get('/api/holders/:ca', async (req, res) => {
     if (!Array.isArray(value) || value.length === 0) return empty();
     const total = value.reduce((sum, i) => sum + (Number(i.uiAmount) || 0), 0);
     if (total <= 0) return empty();
-    const allHolders = value.slice(0, 10).map((i) => ({
+    const allHolders = value.slice(0, 5).map((i) => ({
       address: i.address,
       amount: i.amount,
       uiAmount: Number(i.uiAmount) || 0,
@@ -1132,7 +1132,7 @@ app.get('/api/holders/:ca', async (req, res) => {
         await pool.query('UPDATE tokens SET top_holders = $1 WHERE ca = $2', [toStore, ca]);
       } catch (e) {}
     }
-    const { concentrationRisk, concentrationWarning } = getConcentration(allHolders);
+    const { concentrationRisk, concentrationWarning } = getConcentration(allHolders.slice(0, 5));
     const holders = allHolders.filter(h => parseFloat(h.percent) >= 0.1).slice(0, 5);
     if (concentrationRisk > 0 && process.env.DATABASE_URL) {
       try {
