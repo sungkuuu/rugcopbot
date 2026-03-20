@@ -734,6 +734,9 @@ async function processNewToken(ca, name, symbol) {
 /** 한 개 솔라나 토큰 스캔 (GoPlus + DexScreener, 저장/알림). tokenMeta: { description?, symbol?, name? } */
 async function scanOneSolanaToken(ca, tokenMeta = {}) {
   try {
+    const existing = await pool.query('SELECT id FROM tokens WHERE ca = $1 LIMIT 1', [ca]);
+    if (existing.rows.length > 0) return; // skip already scanned tokens
+
     const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
     const dexData = await dexRes.json();
     const pair = dexData.pairs?.[0];
@@ -877,18 +880,6 @@ async function scanTrendingTokens() {
         symbol: token.symbol,
         name: token.name,
       });
-      await new Promise(r => setTimeout(r, 2000));
-    }
-
-    // Solana 신규 상장 토큰 추가 스캔 (상위 10개)
-    const newRes = await fetch('https://api.dexscreener.com/tokenprofiles/v1/latest');
-    const newData = await newRes.json();
-    const newCAs = Array.isArray(newData)
-      ? newData.filter(t => t.chainId === 'solana').slice(0, 10).map(t => t.tokenAddress).filter(Boolean)
-      : [];
-
-    for (const ca of newCAs) {
-      await scanOneSolanaToken(ca, {});
       await new Promise(r => setTimeout(r, 2000));
     }
   } catch(e) { console.error('Trending scan error:', e.message); }
