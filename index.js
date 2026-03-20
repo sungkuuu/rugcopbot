@@ -664,17 +664,19 @@ async function processNewToken(ca, name, symbol) {
 
   const sd = await scanSolanaToken(ca);
   if (!sd) {
-    // No GoPlus: require Helius signatures > 0 and bundle must be HIGH_BUNDLE only
-    const sigCount = await getHeliusSignatureCount(ca);
-    if (sigCount === 0) {
-      console.log(`⏭️ ${symbol || '?'} - GoPlus empty, signatures===0 for ${ca}, skipping DB save`);
+    // No GoPlus: skip only when Helius has no transaction data at all.
+    let heliusHasData = false;
+    try {
+      const txRes = await fetch(`https://api.helius.xyz/v0/addresses/${ca}/transactions?api-key=${HELIUS_API_KEY}&limit=100`);
+      const txText = await txRes.text();
+      const parsedTxs = JSON.parse(txText);
+      heliusHasData = Array.isArray(parsedTxs);
+    } catch (e) {}
+    if (!heliusHasData) {
+      console.log(`⏭️ ${symbol || '?'} - GoPlus empty and Helius has no data for ${ca}, skipping DB save`);
       return;
     }
     const bundleRisk = await getBundleRisk(ca);
-    if (!bundleRisk.flags || !bundleRisk.flags.includes('HIGH_BUNDLE')) {
-      console.log(`⏭️ ${symbol || '?'} - GoPlus empty and bundle not HIGH_BUNDLE for ${ca}, skipping DB save`);
-      return;
-    }
     const metaFromHelius = await getTokenMeta(ca);
     let logo = null;
     try {
@@ -903,10 +905,19 @@ async function scanOneSolanaToken(ca, tokenMeta = {}) {
 async function scanTrendingTokens() {
   try {
     console.log('🔥 Scanning trending tokens...');
-    const res = await fetch('https://api.dexscreener.com/tokenprofiles/v1/latest');
-    const tokens = await res.json();
+    const res = await fetch('https://api.dexscreener.com/latest/dex/tokens/solana');
+    const data = await res.json();
+    const tokens = Array.isArray(data?.pairs)
+      ? data.pairs.map((p) => ({
+          chainId: p?.chainId || 'solana',
+          tokenAddress: p?.baseToken?.address,
+          symbol: p?.baseToken?.symbol,
+          name: p?.baseToken?.name,
+          description: p?.baseToken?.name,
+        }))
+      : [];
     const solTokens = (Array.isArray(tokens) ? tokens : [])
-      .filter(t => t.chainId === 'solana' && t.tokenAddress)
+      .filter(t => t.tokenAddress)
       .slice(0, 20);
 
     for (const token of solTokens) {
