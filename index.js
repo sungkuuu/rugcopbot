@@ -259,9 +259,12 @@ async function tweetAlert(rug) {
   const top10pct = rug.top10pct != null ? rug.top10pct : 0;
   const top10str = top10pct > 0 ? Math.round(top10pct) + '%' : 'N/A';
   const chainStr = chain || 'SOL';
+  const bundleLabel = rug.bundle_label || 'N/A';
 
   if (!symbol || symbol === '???') return;
   if (name === 'Unknown') return;
+  if (Number(volume24h) === 0 && Number(marketCap) === 0) return;
+  if (bundleLabel === 'N/A' && Array.isArray(flags) && flags.length === 1 && flags[0] === 'HIGH_BUNDLE') return;
 
   const isMutable =
     (flags || []).includes('MUTABLE_METADATA') ||
@@ -272,6 +275,7 @@ async function tweetAlert(rug) {
 
   // DANGER 알림: high bundle instantly, else risk>=70
   if (isHighBundle || risk >= 70) {
+    if (!(Number(volume24h) > 1000 || /HIGH/i.test(bundleLabel))) return;
     const dangerMsg = `🚨 SCAM ALERT — $${symbol}
 
 ${name} | ${chainStr} | Risk: ${risk}%
@@ -284,7 +288,7 @@ CA: ${ca}
 
 💰 Vol 24h: $${Number(volume24h).toLocaleString('en-US', { maximumFractionDigits: 0 })}
 📊 MCap: $${Number(marketCap).toLocaleString('en-US')}
-🔗 Bundle: ${rug.bundle_label || 'N/A'}
+🔗 Bundle: ${bundleLabel}
 
 ——— TWEET DRAFT ———
 🚨 $${symbol} flagged by RugCop
