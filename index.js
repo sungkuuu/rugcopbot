@@ -299,8 +299,43 @@ rugcop.xyz
 #Solana #RugPull #CryptoScam
 ———————————`;
 
+    const tweetDraft = (() => {
+      const part = dangerMsg.split('——— TWEET DRAFT ———')[1] || '';
+      return part.split('———————————')[0].trim();
+    })();
+    const callbackData = `tweet_now_${rug.ca.slice(0, 6)}_${Date.now()}`;
     try {
-      await bot.sendMessage(process.env.ADMIN_CHAT_ID, dangerMsg);
+      const sent = await bot.sendMessage(process.env.ADMIN_CHAT_ID, dangerMsg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🐦 Tweet Now', callback_data: callbackData }]
+          ]
+        }
+      });
+
+      const handler = async (query) => {
+        if (query.data !== callbackData) return;
+        try {
+          await bot.answerCallbackQuery(query.id);
+          if (!twitter) {
+            await bot.answerCallbackQuery(query.id, { text: '⚠️ Twitter keys missing', show_alert: true });
+            return;
+          }
+          await twitter.v2.tweet({ text: tweetDraft });
+          await bot.sendMessage(query.message.chat.id, '✅ Tweeted!', { reply_to_message_id: query.message.message_id });
+        } catch (e) {
+          console.error('Tweet Now failed:', e.message);
+          await bot.answerCallbackQuery(query.id, { text: '❌ Tweet failed', show_alert: true });
+        } finally {
+          clearTimeout(timeout);
+          bot.removeListener('callback_query', handler);
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        bot.removeListener('callback_query', handler);
+      }, 2 * 60 * 1000);
+      bot.on('callback_query', handler);
       console.log('📩 Admin notified (danger):', symbol);
       tweetedCAs.add(rug.ca);
       saveTweetedCA(rug.ca);
